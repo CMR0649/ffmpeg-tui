@@ -11,9 +11,9 @@ import (
 
 type Config struct {
 	// 视频
-	VideoDecoder string `json:"video_decoder"` // 可为空
-	VideoEncoder string `json:"video_encoder"` // 如 libx264；空表示复制流
-	VideoPreset  string `json:"video_preset"`  // 视编码器而定，如 libx264 的 slow
+	VideoDecoder string `json:"video_decoder"` // 解码器
+	VideoEncoder string `json:"video_encoder"` // 编码器
+	VideoPreset  string `json:"video_preset"`  // 视编码器而定
 	QualityMode  string `json:"quality_mode"`  // 恒定质量 CRF / 可变码率 VBR / 固定码率 CBR
 	QualityValue string `json:"quality_value"` // 质量值（如 CRF 23）
 	VideoBitrate string `json:"video_bitrate"` // 基础比特率，kbps
@@ -24,10 +24,10 @@ type Config struct {
 	VideoFPS     string `json:"video_fps"`     // 帧率
 
 	// 音频
-	AudioEncoder string `json:"audio_encoder"` // 如 aac；空表示复制流
+	AudioEncoder string `json:"audio_encoder"` // 编码器
 	AudioBitrate string `json:"audio_bitrate"` // 比特率，kbps
 	SampleRate   string `json:"sample_rate"`   // 采样率，Hz
-	BitDepth     string `json:"bit_depth"`     // 位深度（WAV/PCM 编码器，与编码器名称同步）
+	BitDepth     string `json:"bit_depth"`     // 位深度
 
 	// 文件 / 输出
 	OutputDir    string `json:"output_dir"`    // 空或 $file = 输入文件所在目录
