@@ -52,6 +52,8 @@ type App struct {
 	dialogFocusables []tview.Primitive // 对话框内可聚焦组件（Tab 循环）
 	dialogFocusIndex int
 	dialogButtons    []tview.Primitive // 对话框内横向按钮组：[确定] [取消]（左右键切换）
+	optDialog        *optionDialog     // 选项对话框状态（支持 "/" 搜索过滤）
+	searching        bool              // 是否正在搜索选项对话框
 }
 
 // NewApp 创建并初始化应用。
@@ -382,6 +384,11 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		a.tviewApp.Stop()
 		return nil
 	case tcell.KeyRune:
+		// "/" 在选项对话框中打开搜索框过滤选项（如编码器/解码器列表）。
+		if event.Rune() == '/' && a.dialogOpen && a.optDialog != nil && a.focusOnDialogList() {
+			a.startOptionSearch()
+			return nil
+		}
 		if a.dialogOpen {
 			return event // 对话框打开时，A/D 不切换标签，按键交给对话框
 		}

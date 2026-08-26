@@ -19,7 +19,10 @@ type Task struct {
 	Output   string
 	Status   string // 等待中 / 转码中 / 已完成 / 失败
 	Progress float64
+	ErrMsg   string // 失败原因
 	duration float64
+	hasVideo bool
+	hasAudio bool
 	index    int
 }
 
@@ -34,11 +37,14 @@ func (a *App) addTasksFromFiles() {
 	}
 	a.tasks = nil
 	for _, input := range a.files {
+		hasVideo, hasAudio := probeStreams(input)
 		t := &Task{
 			Input:    input,
 			Output:   a.outputPath(input),
 			Status:   "等待中",
 			duration: probeDuration(input),
+			hasVideo: hasVideo,
+			hasAudio: hasAudio,
 		}
 		a.tasks = append(a.tasks, t)
 	}
@@ -65,6 +71,9 @@ func taskSecondaryText(t *Task) string {
 	case "转码中":
 		return fmt.Sprintf("转码中 · %.0f%%", t.Progress)
 	case "失败":
+		if t.ErrMsg != "" {
+			return "失败：" + t.ErrMsg
+		}
 		return "失败"
 	default:
 		return "等待中"
@@ -91,6 +100,7 @@ func (a *App) startTasks() {
 			if err != nil {
 				t.Status = "失败"
 				t.Progress = 0
+				t.ErrMsg = err.Error()
 			} else {
 				t.Status = "已完成"
 				t.Progress = 100
@@ -100,9 +110,9 @@ func (a *App) startTasks() {
 	}()
 }
 
-// runTask 执行单个转码任务并解析进度。
+// runTask 执行单个转码任务并解析进度；失败时返回 ffmpeg 的错误摘要。
 func (a *App) runTask(t *Task) error {
-	cmd := exec.Command("ffmpeg", a.buildCommand(t.Input, t.Output)...)
+	cmd := exec.Command("ffmpeg", a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -110,9 +120,11 @@ func (a *App) runTask(t *Task) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	lastErr := ""
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		if m := timeRe.FindStringSubmatch(scanner.Text()); m != nil && t.duration > 0 {
+		line := scanner.Text()
+		if m := timeRe.FindStringSubmatch(line); m != nil && t.duration > 0 {
 			h, _ := strconv.Atoi(m[1])
 			min, _ := strconv.Atoi(m[2])
 			sec, _ := strconv.ParseFloat(m[3], 64)
@@ -123,11 +135,42 @@ func (a *App) runTask(t *Task) error {
 			}
 			a.updateTask(t)
 		}
+		if strings.Contains(line, "Error") || strings.Contains(line, "error") {
+			if t := strings.TrimSpace(line); len(t) > 60 {
+				lastErr = t[:60]
+			} else {
+				lastErr = t
+			}
+		}
 	}
 	if err := cmd.Wait(); err != nil {
-		return err
+		if lastErr == "" {
+			return err
+		}
+		return fmt.Errorf("%s", lastErr)
 	}
 	return nil
+}
+
+// probeStreams 用 ffprobe 检测输入文件的视频/音频流。
+func probeStreams(path string) (hasVideo, hasAudio bool) {
+	name := "ffprobe"
+	if runtime.GOOS == "windows" {
+		name = "ffprobe.exe"
+	}
+	out, err := exec.Command(name, "-v", "error", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1", path).Output()
+	if err != nil {
+		return false, false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		switch strings.TrimSpace(line) {
+		case "codec_type=video":
+			hasVideo = true
+		case "codec_type=audio":
+			hasAudio = true
+		}
+	}
+	return hasVideo, hasAudio
 }
 
 // clearFinishedTasks 清空已完成与失败的任务。

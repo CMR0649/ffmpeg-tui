@@ -41,7 +41,7 @@ func (a *App) editAudioEncoder() {
 			return
 		}
 		a.cfg.AudioEncoder = audioEncoders[i-1]
-		if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") {
+		if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") && a.cfg.BitDepth == "" {
 			a.cfg.BitDepth = "16" // WAV/PCM 默认 16-bit，与编码器名称同步
 		}
 		a.refreshAudioPage()
@@ -100,30 +100,27 @@ func (a *App) sampleRateLabel() string {
 	return a.cfg.SampleRate + " Hz"
 }
 
-// editBitDepth 位深度：仅 WAV/PCM 编码器有效，且与编码器名称同步。
+// editBitDepth 位深度：对所有音频编码器可用（通过 -sample_fmt s[位深]），
+// 例如 `ffmpeg -i in.mp3 -sample_fmt s16 out.flac`；
+// WAV/PCM 编码器选择位深时同时同步编码器名称（16→pcm_s16le 等）。
 func (a *App) editBitDepth() {
-	if !a.audioIsWav() {
-		a.showMessageDialog("位深度（与编码器名称同步）", "位深度仅对 WAV/PCM 编码器有效（与编码器名称同步）。")
-		return
-	}
 	labels := make([]string, len(bitDepths))
 	for i, b := range bitDepths {
 		labels[i] = b.Label
 	}
-	a.showOptionDialog("位深度（与编码器名称同步）", labels, func(i int) {
+	a.showOptionDialog("位深度（-sample_fmt s[位深]）", labels, func(i int) {
 		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i].Label, "-bit")
-		a.cfg.AudioEncoder = bitDepths[i].Name // 与编码器名称同步
+		if a.audioIsWav() {
+			a.cfg.AudioEncoder = bitDepths[i].Name // WAV/PCM：与编码器名称同步
+		}
 		a.refreshAudioPage()
 	})
 }
 
 // bitDepthLabel 位深度项的当前值显示。
 func (a *App) bitDepthLabel() string {
-	if !a.audioIsWav() {
-		return "编码器不支持"
-	}
 	if a.cfg.BitDepth == "" {
-		return "16-bit"
+		return "未设置"
 	}
 	return fmt.Sprintf("%s-bit", a.cfg.BitDepth)
 }

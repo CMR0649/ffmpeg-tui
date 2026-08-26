@@ -1,18 +1,15 @@
 package ui
 
 import (
-	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 )
 
-// 编码器/解码器列表动态加载：
-// 优先读取工作目录（或可执行文件同目录）下的 ffmpeg-encoders.txt /
-// ffmpeg-decoders.txt（格式与 `ffmpeg -encoders` / `ffmpeg -decoders`
-// 输出一致），找不到时直接运行 ffmpeg 命令获取。
+// 编码器/解码器列表直接通过 ffmpeg 命令获取（不依赖外部文件）：
+//   ffmpeg -encoders   → 编码器列表
+//   ffmpeg -decoders   → 解码器列表
 // 编码器详情通过 `ffmpeg -h encoder=名称` 获取。
 
 var (
@@ -42,45 +39,13 @@ func (e *EncoderInfo) HasOption(name string) bool {
 	return false
 }
 
-// loadCodecLists 加载编码器/解码器列表（幂等）。
+// loadCodecLists 加载编码器/解码器列表（幂等，直接使用 ffmpeg 命令）。
 func loadCodecLists() {
 	if len(videoEncoders) > 0 || len(audioEncoders) > 0 {
 		return
 	}
-	encTxt := findCodecFile("ffmpeg-encoders.txt")
-	if encTxt != "" {
-		videoEncoders, audioEncoders = parseCodecList(readTextFile(encTxt))
-	} else {
-		videoEncoders, audioEncoders = codecListFromCmd("ffmpeg", "-encoders")
-	}
-	decTxt := findCodecFile("ffmpeg-decoders.txt")
-	if decTxt != "" {
-		videoDecoders, audioDecoders = parseCodecList(readTextFile(decTxt))
-	} else {
-		videoDecoders, audioDecoders = codecListFromCmd("ffmpeg", "-decoders")
-	}
-}
-
-// findCodecFile 依次在工作目录、可执行文件目录查找编码器列表文件。
-func findCodecFile(name string) string {
-	if fileExists(name) {
-		return name
-	}
-	if exe, err := os.Executable(); err == nil {
-		p := filepath.Join(filepath.Dir(exe), name)
-		if fileExists(p) {
-			return p
-		}
-	}
-	return ""
-}
-
-func readTextFile(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(data)
+	videoEncoders, audioEncoders = codecListFromCmd("ffmpeg", "-encoders")
+	videoDecoders, audioDecoders = codecListFromCmd("ffmpeg", "-decoders")
 }
 
 // codecLineRe 匹配 " V....D libx264  H.264 ..." 行。

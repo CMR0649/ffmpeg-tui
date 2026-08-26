@@ -53,12 +53,18 @@ func (a *App) dialogFocusPrev() {
 }
 
 // closeDialog 关闭当前对话框，并把焦点还给当前标签页内容。
+// 若正处在选项搜索中，则重建选项对话框（取消搜索）。
 func (a *App) closeDialog() {
 	if !a.dialogOpen {
 		return
 	}
 	a.dialogOpen = false
 	a.rootPages.RemovePage("dialog")
+	if a.searching {
+		a.searching = false
+		a.buildOptionDialog()
+		return
+	}
 	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
 }
 
@@ -99,35 +105,86 @@ func (a *App) buildDialogBox(title string, body tview.Primitive, width, height i
 	return grid
 }
 
+// optionDialog 选项选择对话框状态（支持 "/" 搜索过滤）。
+type optionDialog struct {
+	title    string
+	options  []string
+	confirm  func(int)
+	filter   string
+	filtered []int // 过滤后对应的 options 下标
+	list     *tview.List
+}
+
 // showOptionDialog 显示选项选择对话框；confirm(index) 在确定后调用。
+// 打开后按 "/" 打开搜索框过滤选项。
 func (a *App) showOptionDialog(title string, options []string, confirm func(int)) {
+	a.optDialog = &optionDialog{title: title, options: options, confirm: confirm}
+	a.buildOptionDialog()
+}
+
+// buildOptionDialog 按当前过滤条件重建选项对话框。
+func (a *App) buildOptionDialog() {
+	d := a.optDialog
+	if d == nil {
+		return
+	}
+	// 过滤
+	d.filtered = d.filtered[:0]
+	needle := strings.ToLower(d.filter)
+	for i, opt := range d.options {
+		if needle == "" || strings.Contains(strings.ToLower(opt), needle) {
+			d.filtered = append(d.filtered, i)
+		}
+	}
+
 	list := tview.NewList()
-	for i, opt := range options {
-		opt, i := opt, i
-		list.AddItem(opt, "", 0, func() {
+	for _, idx := range d.filtered {
+		idx := idx
+		list.AddItem(d.options[idx], "", 0, func() {
 			a.closeDialog()
-			confirm(i)
+			d.confirm(idx)
 		})
 	}
+	if len(d.filtered) == 0 {
+		list.AddItem("（无匹配项）", "", 0, nil)
+	}
+	d.list = list
 
 	ok := tview.NewButton("[确定]")
 	cancel := tview.NewButton("[取消]")
 	ok.SetSelectedFunc(func() {
-		idx := list.GetCurrentItem()
+		ci := list.GetCurrentItem()
 		a.closeDialog()
-		confirm(idx)
+		if ci >= 0 && ci < len(d.filtered) {
+			d.confirm(d.filtered[ci])
+		}
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
-	height := len(options) + 6
-	if height < 8 {
-		height = 8
+	// 增大弹窗：编码器/解码器列表可能很长（列表内部滚动）。
+	height := len(d.filtered) + 6
+	if height < 10 {
+		height = 10
 	}
-	if height > 14 {
-		height = 14 // 编码器/解码器列表可能很长，限制对话框高度（列表内部滚动）
+	if height > 18 {
+		height = 18
 	}
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(title, list, 36, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
+	a.showDialog(a.buildDialogBox(d.title, list, 56, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
+}
+
+// startOptionSearch 打开搜索框过滤选项对话框；取消时回到原对话框。
+func (a *App) startOptionSearch() {
+	d := a.optDialog
+	if d == nil {
+		return
+	}
+	a.searching = true
+	a.showInputDialog("搜索（输入关键字过滤）", d.filter, func(text string) {
+		a.searching = false
+		d.filter = strings.TrimSpace(text)
+		a.buildOptionDialog()
+	})
 }
 
 // showInputDialog 显示输入对话框；confirm(text) 在确定后调用。
@@ -224,7 +281,7 @@ func (a *App) addFilePath(path string) {
 
 // onSetContainer 处理「设置输出容器」。
 func (a *App) onSetContainer() {
-	containers := []string{"mp4", "mkv", "avi", "mov", "webm", "flv", "ts", "wmv"}
+	containers := []string{"mp4", "mkv", "avi", "mov", "webm", "flv", "ts", "wmv", "flac", "ogg", "m4a", "mp3", "wav"}
 	a.showOptionDialog("设置输出容器", containers, func(i int) {
 		a.outputContainer = containers[i]
 		a.updateFileBar()
