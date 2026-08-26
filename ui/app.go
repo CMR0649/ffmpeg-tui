@@ -32,16 +32,25 @@ func NewApp() *App {
 		pages.AddPage(name, buildPage(i), true, i == 0)
 	}
 
+	// 文本区显式样式：白字黑底。
+	// 若不设置，tview 会用 ColorDefault 背景填充文本区，浅色主题终端下
+	// 整行会跟随终端默认背景（如白色），导致标签栏显示异常。
+	textStyle := tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor)
+
 	tabBar := tview.NewTextView()
 	tabBar.SetDynamicColors(true)
 	tabBar.SetWordWrap(false)
 	tabBar.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	tabBar.SetTextStyle(textStyle)
 
 	version := tview.NewTextView()
 	version.SetDynamicColors(true)
 	version.SetTextAlign(tview.AlignRight)
 	version.SetText(fmt.Sprintf(" [yellow]v%s[-]", Version))
 	version.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	version.SetTextStyle(textStyle)
 
 	topBar := tview.NewFlex()
 	topBar.AddItem(tabBar, 0, 1, false)
@@ -51,6 +60,7 @@ func NewApp() *App {
 	footer.SetTextAlign(tview.AlignCenter)
 	footer.SetText(" A/D：切换    方向键：选择 ")
 	footer.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	footer.SetTextStyle(textStyle)
 
 	root := tview.NewFlex().SetDirection(tview.FlexRow)
 	root.AddItem(topBar, 1, 0, false)
@@ -89,10 +99,13 @@ func (a *App) renderTabBar() {
 		if i == a.current {
 			sb.WriteString("[black:white]  ")
 			sb.WriteString(label)
-			sb.WriteString("  [-]")
+			// 注意：tview 中 [-] 只重置前景色，背景色会延续导致整行变白，
+			// 必须用 [-:-:-] 同时重置前景/背景/属性。
+			sb.WriteString("  [-:-:-]")
 			width += 4
 		} else {
-			sb.WriteString("   ")
+			// 未选中标签显式使用白字黑底，不依赖重置标签，保证各种终端一致。
+			sb.WriteString("[white:black]   ")
 			sb.WriteString(label)
 			sb.WriteString("   ")
 			width += 6
