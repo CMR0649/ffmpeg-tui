@@ -1,9 +1,4 @@
 #!/bin/sh
-# ffmpeg-tui 构建脚本（Linux 环境，POSIX sh 兼容，可在容器内运行）
-# 生成：
-#   bin/ffmpeg-tui      —— Linux 可执行文件
-#   bin/ffmpeg-tui.exe  —— Windows 可执行文件（交叉编译）
-# 前置：已安装 Go 工具链（推荐在构建容器中执行，见 ../ffmpeg-tui-container/build.sh）
 set -eu
 cd "$(dirname "$0")"
 

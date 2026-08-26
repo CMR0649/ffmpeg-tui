@@ -1,9 +1,4 @@
 @echo off
-REM ffmpeg-tui 构建脚本（Windows 环境）
-REM 生成：
-REM   bin\ffmpeg-tui.exe  —— Windows 可执行文件
-REM   bin\ffmpeg-tui      —— Linux 可执行文件（交叉编译）
-REM 前置：已安装 Go 工具链
 setlocal
 cd /d "%~dp0"
 

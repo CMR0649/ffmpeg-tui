@@ -7,9 +7,6 @@ import (
 	"github.com/rivo/tview"
 )
 
-// buildVideoPage 构建「视频」页：编码 / 质量 / 画面 三组选项。
-// 编码器列表从 ffmpeg-encoders.txt（或 ffmpeg 命令）动态加载，
-// 编码器详情通过 `ffmpeg -h encoder=名称` 获取，选项以 FFmpeg 文档为准。
 func (a *App) buildVideoPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
@@ -43,13 +40,12 @@ func (a *App) refreshVideoPage() {
 
 // ---------- 编码 ----------
 
-// editVideoEncoder 从动态加载的视频编码器列表中选择编码器（默认复制流）。
 func (a *App) editVideoEncoder() {
 	loadCodecLists()
 	labels := make([]string, 0, len(videoEncoders)+1)
 	labels = append(labels, "复制流（默认）")
 	labels = append(labels, videoEncoders...)
-	a.showOptionDialog("编码器（默认复制流）", labels, func(i int) {
+	a.showOptionDialog("编码器", labels, func(i int) {
 		if i == 0 {
 			a.cfg.VideoEncoder = ""
 			a.cfg.VideoPreset = ""
@@ -80,17 +76,17 @@ func (a *App) videoEncoderLabel() string {
 	return a.cfg.VideoEncoder
 }
 
-// editVideoDecoder 解码器（可以为空），列表动态加载。
+// editVideoDecoder 解码器
 func (a *App) editVideoDecoder() {
 	loadCodecLists()
 	names := videoDecoderNames
 	if len(videoDecoders) > 0 {
 		names = make([]string, 0, len(videoDecoders)+1)
-		names = append(names, "空")
+		names = append(names, "自动选择")
 		names = append(names, videoDecoders...)
 	}
-	a.showOptionDialog("解码器（可以为空）", names, func(i int) {
-		if names[i] == "空" {
+	a.showOptionDialog("解码器（不建议修改）", names, func(i int) {
+		if names[i] == "自动选择" {
 			a.cfg.VideoDecoder = ""
 		} else {
 			a.cfg.VideoDecoder = names[i]
@@ -107,19 +103,30 @@ func (a *App) videoDecoderLabel() string {
 	return a.cfg.VideoDecoder
 }
 
-// editVideoPreset 预设（视编码器而定，由 ffmpeg -h 判断是否支持）。
 func (a *App) editVideoPreset() {
 	if !a.videoEncoderHasPreset() {
 		a.showMessageDialog("预设（视编码器而定）", "当前编码器不提供 preset 选项（视编码器而定）。")
 		return
 	}
-	a.showOptionDialog("预设（视编码器而定）", x264Presets, func(i int) {
-		a.cfg.VideoPreset = x264Presets[i]
+	values := presetValuesFor(a.cfg.VideoEncoder)
+	if len(values) == 0 {
+		values = x264Presets
+	}
+	a.showOptionDialog("预设（视编码器而定）", values, func(i int) {
+		a.cfg.VideoPreset = values[i]
 		a.refreshVideoPage()
 	})
 }
 
-// videoEncoderHasPreset 报告当前编码器是否支持 -preset 选项。
+// presetValuesFor 返回编码器 -preset 选项的枚举取值（来自 ffmpeg -h encoder=）。
+func presetValuesFor(encoder string) []string {
+	if encoder == "" {
+		return nil
+	}
+	return probeEncoder(encoder).OptionValues["preset"]
+}
+
+// videoEncoderHasPreset 报告当前编码器是否支持 -preset 选项
 func (a *App) videoEncoderHasPreset() bool {
 	if a.cfg.VideoEncoder == "" {
 		return false
@@ -127,7 +134,7 @@ func (a *App) videoEncoderHasPreset() bool {
 	return probeEncoder(a.cfg.VideoEncoder).HasOption("preset")
 }
 
-// videoPresetLabel 预设项的当前值显示。
+// videoPresetLabel 预设项的当前值显示
 func (a *App) videoPresetLabel() string {
 	if a.cfg.VideoPreset == "" {
 		return "—"
@@ -137,7 +144,7 @@ func (a *App) videoPresetLabel() string {
 
 // ---------- 质量 ----------
 
-// editQualityMode 控制方式（中文 + 缩写）。
+// editQualityMode 控制方式
 func (a *App) editQualityMode() {
 	a.showOptionDialog("控制方式", qualityModes, func(i int) {
 		a.cfg.QualityMode = qualityModes[i]
@@ -145,7 +152,7 @@ func (a *App) editQualityMode() {
 	})
 }
 
-// qualityModeLabel 控制方式项的当前值显示。
+// qualityModeLabel 控制方式项的当前值显示
 func (a *App) qualityModeLabel() string {
 	if a.cfg.QualityMode == "" {
 		return "恒定质量 CRF"
@@ -153,22 +160,22 @@ func (a *App) qualityModeLabel() string {
 	return a.cfg.QualityMode
 }
 
-// videoEncoderHasQuality 报告当前编码器是否支持设置质量值（-crf / -qscale / -q:v）。
+// videoEncoderHasQuality 报告当前编码器是否支持设置质量值（-crf / -qscale / -q:v）
 func (a *App) videoEncoderHasQuality() bool {
 	if a.cfg.VideoEncoder == "" {
 		return false
 	}
 	info := probeEncoder(a.cfg.VideoEncoder)
-	return info.HasOption("crf") || info.HasOption("qscale") || info.HasOption("q:v")
+	return info.HasOption("crf") || info.HasOption("qscale") || info.HasOption("q:v") || info.HasOption("cq")
 }
 
-// editQualityValue 质量值：编码器不支持时显示「编码器不支持」。
+// editQualityValue 质量值：编码器不支持时显示「编码器不支持」
 func (a *App) editQualityValue() {
 	if !a.videoEncoderHasQuality() {
 		a.showMessageDialog("质量", "当前编码器不支持设置质量值。")
 		return
 	}
-	a.showInputDialog("质量值（如 CRF 0-51）", a.cfg.QualityValue, func(text string) {
+	a.showInputDialog("质量值", a.cfg.QualityValue, func(text string) {
 		text = strings.TrimSpace(text)
 		if text == "" {
 			return
@@ -250,7 +257,7 @@ func (a *App) resolutionLabel() string {
 
 // editFPS 帧率输入。
 func (a *App) editFPS() {
-	a.showInputDialog("帧率（如 30、29.97、30000/1001）", a.cfg.VideoFPS, func(text string) {
+	a.showInputDialog("帧率", a.cfg.VideoFPS, func(text string) {
 		a.cfg.VideoFPS = strings.TrimSpace(text)
 		a.refreshVideoPage()
 	})

@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-// 编码器/解码器列表直接通过 ffmpeg 命令获取（不依赖外部文件）：
+// 编码器/解码器列表直接通过 ffmpeg 命令获取
 //   ffmpeg -encoders   → 编码器列表
 //   ffmpeg -decoders   → 解码器列表
 // 编码器详情通过 `ffmpeg -h encoder=名称` 获取。
 
 var (
-	videoEncoders []string // 视频编码器（动态）
-	audioEncoders []string // 音频编码器（动态）
-	videoDecoders []string // 视频解码器（动态）
-	audioDecoders []string // 音频解码器（动态）
-	outputFormats []string // 可作输出容器的格式（ffmpeg -formats 中带 E 标记）
+	videoEncoders []string // 视频编码器
+	audioEncoders []string // 音频编码器
+	videoDecoders []string // 视频解码器
+	audioDecoders []string // 音频解码器
+	outputFormats []string // 可作输出容器的格式
 
 	encoderInfoCache = map[string]*EncoderInfo{}
 )
@@ -27,7 +27,8 @@ type EncoderInfo struct {
 	Name         string
 	Description  string
 	PixelFormats []string
-	Options      []string // AVOptions 选项名
+	Options      []string            // AVOptions 选项名
+	OptionValues map[string][]string // 选项的枚举取值（如 -preset 的 slow/medium/…）
 }
 
 // HasOption 报告编码器是否支持指定选项（如 preset / crf / qscale）。
@@ -49,8 +50,7 @@ func loadCodecLists() {
 	videoDecoders, audioDecoders = codecListFromCmd("ffmpeg", "-decoders")
 }
 
-// loadFormats 加载可作输出容器的格式列表（幂等）：
-// `ffmpeg -formats` 输出中，标记第二列为 E（Muxing supported）的格式。
+// loadFormats 加载可作输出容器的格式列表
 func loadFormats() {
 	if len(outputFormats) > 0 {
 		return
@@ -65,9 +65,7 @@ func loadFormats() {
 	outputFormats = parseFormats(string(out))
 }
 
-// parseFormats 解析 ffmpeg -formats 输出，返回带 E（muxing）标记的格式名。
-// 数据行第一列是标记（如 "DE"、"D"、"E"、" d"），第二列是格式名；
-// 表头说明行（含 "." 或 "="）被跳过。
+// parseFormats 解析 ffmpeg -formats 输出
 func parseFormats(text string) []string {
 	seen := map[string]bool{}
 	var names []string
@@ -78,10 +76,10 @@ func parseFormats(text string) []string {
 		}
 		flags := f[0]
 		if strings.ContainsAny(flags, ".=") {
-			continue // 表头/说明行
+			continue
 		}
 		if !strings.Contains(flags, "E") {
-			continue // 只有 E 标记（可封装/输出）的格式才能用作输出容器
+			continue
 		}
 		name := strings.Split(f[1], ",")[0]
 		if seen[name] {
@@ -97,13 +95,13 @@ func parseFormats(text string) []string {
 // codecLineRe 匹配 " V....D libx264  H.264 ..." 行。
 var codecLineRe = regexp.MustCompile(`^\s([VA])\S*\s+(\S+)\s*(.*)$`)
 
-// parseCodecList 解析编码器/解码器列表文本，返回视频与音频名称列表（排序、去重）。
+// parseCodecList 解析编码器/解码器列表文本，返回视频与音频名称列表
 func parseCodecList(text string) (video, audio []string) {
 	seen := map[string]bool{}
 	for _, line := range strings.Split(text, "\n") {
 		m := codecLineRe.FindStringSubmatch(line)
 		if m == nil || m[2] == "=" {
-			continue // 跳过表头说明行（如 "V..... = Video"）
+			continue
 		}
 		typ, name := m[1], m[2]
 		if seen[name] {
@@ -147,8 +145,11 @@ func probeEncoder(name string) *EncoderInfo {
 }
 
 // parseEncoderHelp 解析 `ffmpeg -h encoder=名称` 输出。
+// AVOptions 段中：选项行 "  -preset  <int>  …"，其后的缩进行
+// "     slow  0  …" 是该选项的枚举取值（如 av1_nvenc 的 preset）。
 func parseEncoderHelp(out string, info *EncoderInfo) {
 	inOptions := false
+	lastOption := ""
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimRight(line, "\r")
 		switch {
@@ -165,12 +166,25 @@ func parseEncoderHelp(out string, info *EncoderInfo) {
 		case strings.HasSuffix(line, " AVOptions:"):
 			inOptions = true
 		default:
-			if inOptions {
-				t := strings.TrimSpace(line)
-				if strings.HasPrefix(t, "-") {
-					if f := strings.Fields(t); len(f) >= 1 {
-						info.Options = append(info.Options, strings.TrimPrefix(f[0], "-"))
+			if !inOptions {
+				continue
+			}
+			indent := len(line) - len(strings.TrimLeft(line, " "))
+			t := strings.TrimSpace(line)
+			if strings.HasPrefix(t, "-") {
+				if f := strings.Fields(t); len(f) >= 1 {
+					lastOption = strings.TrimPrefix(f[0], "-")
+					info.Options = append(info.Options, lastOption)
+				}
+				continue
+			}
+			if lastOption != "" && indent >= 4 {
+				// 选项的枚举取值行："     slow  0  E..V....... hq 2 passes"
+				if f := strings.Fields(t); len(f) >= 2 {
+					if info.OptionValues == nil {
+						info.OptionValues = map[string][]string{}
 					}
+					info.OptionValues[lastOption] = append(info.OptionValues[lastOption], f[0])
 				}
 			}
 		}

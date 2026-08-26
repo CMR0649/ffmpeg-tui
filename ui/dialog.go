@@ -16,8 +16,6 @@ import (
 
 // ---------- 对话框核心 ----------
 
-// showDialog 在根页面上覆盖显示一个模态对话框。
-// focusables 是对话框内可聚焦组件（Tab/Shift-Tab 循环），initial 为初始焦点。
 func (a *App) showDialog(content tview.Primitive, focusables []tview.Primitive, initial tview.Primitive) {
 	a.rootPages.RemovePage("dialog")
 	a.rootPages.AddPage("dialog", content, true, true)
@@ -68,14 +66,6 @@ func (a *App) closeDialog() {
 	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
 }
 
-// buildDialogBox 构建居中显示的对话框：
-//
-//	┌┤ 标题 ├──────────────┐
-//	│  (body)              │
-//	│  [按钮1]  [按钮2]     │
-//	└──────────────────────┘
-//
-// 返回已居中的 Grid（左右边框由 Box 绘制，保证对齐）。
 func (a *App) buildDialogBox(title string, body tview.Primitive, width, height int, buttons ...*tview.Button) *tview.Grid {
 	btnRow := tview.NewFlex()
 	btnRow.AddItem(nil, 0, 1, false)
@@ -94,9 +84,7 @@ func (a *App) buildDialogBox(title string, body tview.Primitive, width, height i
 	box.AddItem(nil, 1, 0, false)
 	box.SetBorder(true)
 	box.SetTitle("┤ " + title + " ├")
-	box.SetTitleAlign(tview.AlignLeft) // 标题紧贴左上角：┌┤ 标题 ├──
-
-	// 用权重为 0 的外围行列把对话框居中。
+	box.SetTitleAlign(tview.AlignLeft)
 	grid := tview.NewGrid()
 	grid.SetColumns(0, width, 0)
 	grid.SetRows(0, height, 0)
@@ -105,13 +93,12 @@ func (a *App) buildDialogBox(title string, body tview.Primitive, width, height i
 	return grid
 }
 
-// optionDialog 选项选择对话框状态（支持 "/" 搜索过滤）。
 type optionDialog struct {
 	title    string
 	options  []string
 	confirm  func(int)
 	filter   string
-	filtered []int // 过滤后对应的 options 下标
+	filtered []int
 	list     *tview.List
 }
 
@@ -161,7 +148,6 @@ func (a *App) buildOptionDialog() {
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
-	// 增大弹窗：编码器/解码器列表可能很长（列表内部滚动）。
 	height := len(d.filtered) + 6
 	if height < 10 {
 		height = 10
@@ -231,18 +217,17 @@ func (a *App) showMessageDialog(title, text string) {
 
 // ---------- 文件页操作 ----------
 
-// onAddFile 处理「添加文件」：提供 输入路径 与 选择文件（系统文件选择器）两种方式。
 func (a *App) onAddFile() {
 	a.showOptionDialog("添加文件", []string{"输入路径", "选择文件"}, func(choice int) {
 		switch choice {
-		case 0: // 输入路径
+		case 0:
 			a.showInputDialog("输入路径", "", func(text string) {
 				text = strings.TrimSpace(text)
 				if text != "" {
 					a.addFilePath(text)
 				}
 			})
-		case 1: // 系统文件选择器
+		case 1:
 			a.pickFileFromSystem()
 		}
 	})
@@ -265,7 +250,6 @@ func (a *App) pickFileFromSystem() {
 }
 
 // addFilePath 把文件路径加入文件列表，并异步调用 ffprobe 读取文件信息
-// 作为列表项副文本显示。
 func (a *App) addFilePath(path string) {
 	idx := a.filesList.GetItemCount()
 	a.filesList.AddItem(filepath.Base(path), "正在读取文件信息…", 0, nil)
@@ -279,8 +263,6 @@ func (a *App) addFilePath(path string) {
 	}()
 }
 
-// onSetContainer 处理「设置输出容器」：格式列表来自 `ffmpeg -formats`
-// 中带 E（Muxing）标记的格式，仅这些格式能用作输出容器。
 func (a *App) onSetContainer() {
 	loadFormats()
 	if len(outputFormats) == 0 {
@@ -289,7 +271,7 @@ func (a *App) onSetContainer() {
 	}
 	labels := make([]string, len(outputFormats))
 	copy(labels, outputFormats)
-	a.showOptionDialog("输出容器（仅 E 标记的格式）", labels, func(i int) {
+	a.showOptionDialog("输出容器", labels, func(i int) {
 		a.outputContainer = outputFormats[i]
 		a.updateFileBar()
 	})

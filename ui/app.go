@@ -58,8 +58,7 @@ type App struct {
 
 // NewApp 创建并初始化应用。
 func NewApp() *App {
-	// 统一使用单线边框：tview 默认在获得焦点时切换为双线边框，
-	// 与界面设计（┌─┐ 样式）不符，这里固定为单线。
+	// 统一使用单线边框
 	tview.Borders.HorizontalFocus = tview.BoxDrawingsLightHorizontal
 	tview.Borders.VerticalFocus = tview.BoxDrawingsLightVertical
 	tview.Borders.TopLeftFocus = tview.BoxDrawingsLightDownAndRight
@@ -73,7 +72,7 @@ func NewApp() *App {
 		cfg:             DefaultConfig(),
 	}
 
-	// 加载编码器/解码器列表（ffmpeg-encoders.txt / ffmpeg-decoders.txt 或 ffmpeg 命令）。
+	// 加载编码器/解码器列表
 	loadCodecLists()
 
 	// 加载默认配置（若存在，来自「指定默认配置」）。
