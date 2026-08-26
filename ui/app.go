@@ -186,6 +186,15 @@ func (a *App) focusOnFilesList() bool {
 	return a.tviewApp.GetFocus() == a.filesList
 }
 
+// focusOnDialogList 报告当前焦点是否在对话框的选项列表上（选项对话框）。
+func (a *App) focusOnDialogList() bool {
+	if !a.dialogOpen {
+		return false
+	}
+	_, ok := a.tviewApp.GetFocus().(*tview.List)
+	return ok
+}
+
 // focusOnFileButtons 报告当前焦点是否在文件页底部按钮组上。
 func (a *App) focusOnFileButtons() bool {
 	cur := a.tviewApp.GetFocus()
@@ -287,6 +296,16 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			if a.moveHorizontalFocus(left) {
 				return nil
 			}
+			// 焦点在对话框选项列表时，左右键进入 [确定]/[取消] 按钮组
+			// （→ 到 [确定]，← 到 [取消]；输入框内左右键仍为光标移动）。
+			if a.focusOnDialogList() {
+				if left {
+					a.tviewApp.SetFocus(a.dialogButtons[len(a.dialogButtons)-1])
+				} else {
+					a.tviewApp.SetFocus(a.dialogButtons[0])
+				}
+				return nil
+			}
 			return event
 		}
 		if a.current == 0 {
@@ -341,8 +360,11 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 }
 
 // handleTabBarClick 支持鼠标点击标签栏切换标签。
+// 在按下（MouseLeftDown）时即切换：tview 的 MouseLeftClick 要求按下与释放
+// 位于同一单元格，真实鼠标点击的微小位移会导致单击事件不产生（表现为
+// 需要双击才切换），因此这里直接响应按下事件。
 func (a *App) handleTabBarClick(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
-	if action != tview.MouseLeftClick {
+	if action != tview.MouseLeftDown {
 		return action, event
 	}
 	if a.dialogOpen { // 对话框打开时不切换标签
