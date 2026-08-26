@@ -83,7 +83,7 @@ func (a *App) updateOutputDirButton() {
 // editOutputDir 编辑输出目录：空或 $file 表示与输入文件相同；
 // 输入文件在不同目录时分别输出到与之对应的目录。
 func (a *App) editOutputDir() {
-	a.showInputDialog(a.s.OutputDir+"（$file）", a.cfg.OutputDir, func(text string) {
+	a.showInputDialog(a.s.OutputDirTitle, a.cfg.OutputDir, func(text string) {
 		a.cfg.OutputDir = strings.TrimSpace(text)
 		a.updateOutputDirButton()
 	})

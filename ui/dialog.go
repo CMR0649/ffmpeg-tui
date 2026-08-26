@@ -194,7 +194,7 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(title, input, 50, 8, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
+	a.showDialog(a.buildDialogBox(title, input, 62, 8, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
 }
 
 // showMessageDialog 显示提示对话框（单一 [确定] 按钮）。

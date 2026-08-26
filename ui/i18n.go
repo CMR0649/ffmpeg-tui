@@ -16,6 +16,7 @@ type Strings struct {
 	// 文件页
 	FilesTitle      string
 	OutputDir       string
+	OutputDirTitle  string
 	OutputDirSame   string
 	AddFile         string
 	SetContainer    string
@@ -50,7 +51,6 @@ type Strings struct {
 	// 对话框提示
 	PresetUnsupported     string
 	QualityUnsupportedMsg string
-	BitDepthWavOnly       string
 	// 关于
 	AboutTitle, AboutLine1, AboutLine2, AboutLine3, AboutGitHub string
 	// 其他
@@ -61,10 +61,11 @@ type Strings struct {
 var zh = &Strings{
 	TabFiles: "文件", TabVideo: "视频", TabAudio: "音频", TabTasks: "任务", TabSettings: "设置",
 	FooterSwitch: "A/D：切换", FooterSelect: "方向键：选择", FooterDelete: "Delete：移除",
-	OK: "确定", Cancel: "取消", Search: "搜索（输入关键字过滤）", Hint: "提示",
+	OK: "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
-	OutputDirSame:   "与输入文件相同（$file）",
+	OutputDirTitle:  "输出目录（$file 为输入文件目录）",
+	OutputDirSame:   "与输入文件相同",
 	AddFile:         "[添加文件]",
 	SetContainer:    "[设置输出容器]",
 	ContainerLabel:  "输出容器：%s",
@@ -84,12 +85,12 @@ var zh = &Strings{
 	AudioTitle:         " 音频 — 编码选项 ",
 	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
 	BitDepthNotSet: "未设置",
-	WavSync:        "位深度（与编码器名称同步）",
+	WavSync:        "位深度",
 	SettingsTitle:  " 设置 ",
 	OutputOption:   "输出选项", Suffix: "指定后缀",
-	ExportCfg: "导出配置（JSON）", LoadCfg: "加载配置", SetDefaultCfg: "指定默认配置",
+	ExportCfg: "导出配置（JSON）", LoadCfg: "加载配置", SetDefaultCfg: "保存为默认配置",
 	FFmpegPath: "FFmpeg 路径", Language: "语言", About: "关于",
-	NamingTimestamp:   "添加时间（默认）[文件名]_YYYY-M-D-hhmmss",
+	NamingTimestamp:   "添加时间（默认）",
 	NamingSuffix:      "添加指定后缀：%s",
 	NamingNone:        "不添加后缀",
 	FFmpegPathDefault: "系统 PATH",
@@ -98,11 +99,10 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask:         "请先在文件页添加输入文件。",
-	ContainerTitle:        "输出容器（仅 E 标记的格式）",
-	ContainerFailed:       "无法获取容器格式列表（ffmpeg -formats）。",
-	PresetUnsupported:     "当前编码器不提供 preset 选项（视编码器而定）。",
+	ContainerTitle:        "输出容器",
+	ContainerFailed:       "无法获取容器格式列表",
+	PresetUnsupported:     "当前编码器不提供 preset 选项",
 	QualityUnsupportedMsg: "当前编码器不支持设置质量值。",
-	BitDepthWavOnly:       "位深度仅对 WAV/PCM 编码器有效（与编码器名称同步）。",
 	AboutTitle:            "关于",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
@@ -120,10 +120,11 @@ var zh = &Strings{
 var en = &Strings{
 	TabFiles: "Files", TabVideo: "Video", TabAudio: "Audio", TabTasks: "Tasks", TabSettings: "Settings",
 	FooterSwitch: "A/D: switch", FooterSelect: "Arrows: select", FooterDelete: "Delete: remove",
-	OK: "OK", Cancel: "Cancel", Search: "Search (type to filter)", Hint: "Notice",
+	OK: "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
-	OutputDirSame:   "Same as input ($file)",
+	OutputDirTitle:  "Output directory ($file = input file directory)",
+	OutputDirSame:   "Same as input",
 	AddFile:         "[Add file]",
 	SetContainer:    "[Output container]",
 	ContainerLabel:  "Container: %s",
@@ -143,12 +144,12 @@ var en = &Strings{
 	AudioTitle:         " Audio — Encoding Options ",
 	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
 	BitDepthNotSet: "Not set",
-	WavSync:        "Bit depth (synced with encoder name)",
+	WavSync:        "Bit depth",
 	SettingsTitle:  " Settings ",
 	OutputOption:   "Output naming", Suffix: "Suffix",
-	ExportCfg: "Export config (JSON)", LoadCfg: "Load config", SetDefaultCfg: "Set as default config",
+	ExportCfg: "Export config (JSON)", LoadCfg: "Load config", SetDefaultCfg: "Save as default config",
 	FFmpegPath: "FFmpeg path", Language: "Language", About: "About",
-	NamingTimestamp:   "Add timestamp (default) [name]_YYYY-M-D-hhmmss",
+	NamingTimestamp:   "Add timestamp (default)",
 	NamingSuffix:      "Add suffix: %s",
 	NamingNone:        "No suffix",
 	FFmpegPathDefault: "System PATH",
@@ -157,11 +158,10 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask:         "Please add input files on the Files page first.",
-	ContainerTitle:        "Output container (formats marked E only)",
-	ContainerFailed:       "Cannot get container formats (ffmpeg -formats).",
-	PresetUnsupported:     "This encoder has no preset option (depends on encoder).",
+	ContainerTitle:        "Output container",
+	ContainerFailed:       "Cannot get container formats",
+	PresetUnsupported:     "This encoder has no preset option",
 	QualityUnsupportedMsg: "This encoder does not support a quality value.",
-	BitDepthWavOnly:       "Bit depth only applies to WAV/PCM encoders (synced with encoder name).",
 	AboutTitle:            "About",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
