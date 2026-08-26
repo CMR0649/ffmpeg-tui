@@ -22,6 +22,7 @@ type App struct {
 	pages     *tview.Pages // 标签页内容
 	rootPages *tview.Pages // 根页面：main（主界面）+ dialog（模态对话框）
 	tabBar    *tview.TextView
+	footer    *tview.TextView
 	tabRanges []struct{ start, end int } // 各标签在标签栏中的横向范围（鼠标点击用）
 	current   int
 
@@ -94,9 +95,9 @@ func NewApp() *App {
 
 	footer := tview.NewTextView()
 	footer.SetTextAlign(tview.AlignCenter)
-	footer.SetText(" A/D：切换    方向键：选择    Delete：移除 ")
 	footer.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	footer.SetTextStyle(textStyle)
+	a.footer = footer
 
 	mainRoot := tview.NewFlex().SetDirection(tview.FlexRow)
 	mainRoot.AddItem(topBar, 1, 0, false)
@@ -112,6 +113,7 @@ func NewApp() *App {
 	a.tviewApp.SetInputCapture(a.handleKeys)
 	a.tabBar.SetMouseCapture(a.handleTabBarClick)
 	a.renderTabBar()
+	a.renderFooter()
 	return a
 }
 
@@ -179,6 +181,22 @@ func (a *App) fileBarCurrentIndex() int {
 	return 0
 }
 
+// focusOnFilesList 报告当前焦点是否在文件列表上。
+func (a *App) focusOnFilesList() bool {
+	return a.tviewApp.GetFocus() == a.filesList
+}
+
+// focusOnFileButtons 报告当前焦点是否在文件页底部按钮组上。
+func (a *App) focusOnFileButtons() bool {
+	cur := a.tviewApp.GetFocus()
+	for _, p := range a.fileBarButtons {
+		if p == cur {
+			return true
+		}
+	}
+	return false
+}
+
 // moveHorizontalFocus 处理左/右方向键：当焦点位于横向排列的按钮组
 // （文件页底部 [添加文件] [设置输出容器]，或对话框 [确定] [取消]）时，
 // 在同组按钮间循环切换焦点。返回 true 表示事件已消费。
@@ -221,7 +239,17 @@ func (a *App) switchTab(i int) {
 	a.current = ((i % n) + n) % n
 	a.pages.SwitchToPage(tabNames[a.current])
 	a.renderTabBar()
+	a.renderFooter()
 	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
+}
+
+// renderFooter 刷新底部按键提示：Delete：移除 仅在文件页显示。
+func (a *App) renderFooter() {
+	if a.current == 0 {
+		a.footer.SetText(" A/D：切换    方向键：选择    Delete：移除 ")
+	} else {
+		a.footer.SetText(" A/D：切换    方向键：选择 ")
+	}
 }
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出。
@@ -251,8 +279,33 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			return nil
 		}
 	case tcell.KeyLeft, tcell.KeyRight:
-		// 左右方向键在横向排列的按钮组（文件页底部 / 对话框 [确定][取消]）间切换焦点。
-		if a.moveHorizontalFocus(event.Key() == tcell.KeyLeft) {
+		// 左/右方向键在横向排列的选项中切换焦点：
+		// 对话框内 [确定]/[取消]、文件页底部 [添加文件]/[设置输出容器]；
+		// 焦点在文件列表时，→ 进入 [添加文件]、← 进入 [设置输出容器]。
+		left := event.Key() == tcell.KeyLeft
+		if a.dialogOpen {
+			if a.moveHorizontalFocus(left) {
+				return nil
+			}
+			return event
+		}
+		if a.current == 0 {
+			if a.moveHorizontalFocus(left) {
+				return nil
+			}
+			if a.focusOnFilesList() {
+				if left {
+					a.tviewApp.SetFocus(a.fileBarButtons[len(a.fileBarButtons)-1])
+				} else {
+					a.tviewApp.SetFocus(a.fileBarButtons[0])
+				}
+				return nil
+			}
+		}
+	case tcell.KeyUp, tcell.KeyDown:
+		// 文件页：焦点在底部按钮时，↑/↓ 返回文件列表。
+		if !a.dialogOpen && a.current == 0 && a.focusOnFileButtons() {
+			a.tviewApp.SetFocus(a.filesList)
 			return nil
 		}
 	case tcell.KeyDelete:
