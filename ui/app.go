@@ -11,7 +11,7 @@ import (
 )
 
 // Version 是当前版本号。
-const Version = "beta0.2"
+const Version = "beta1.0"
 
 // tabNames 定义顶部标签页（顺序即显示顺序）。
 var tabNames = []string{"文件", "视频", "音频", "任务", "设置"}
@@ -30,8 +30,15 @@ type App struct {
 	filesList          *tview.List
 	fileContainerLabel *tview.TextView
 	outputContainer    string
-	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 添加文件 / 设置输出容器
+	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 输出目录 / 添加文件 / 设置输出容器
 	fileBarButtons     []tview.Primitive // 文件页底部横向按钮组：[添加文件] [设置输出容器]（左右键切换）
+	outputDirBtn       *tview.Button     // 输出目录选项行
+
+	// 配置与各选项页
+	cfg          *Config
+	videoList    *tview.List
+	audioList    *tview.List
+	settingsList *tview.List
 
 	// 对话框状态
 	dialogOpen       bool
@@ -54,6 +61,12 @@ func NewApp() *App {
 	a := &App{
 		tviewApp:        tview.NewApplication(),
 		outputContainer: "mp4",
+		cfg:             DefaultConfig(),
+	}
+
+	// 加载默认配置（若存在，来自「指定默认配置」）。
+	if p := defaultConfigPath(); fileExists(p) {
+		_ = a.cfg.LoadJSON(p)
 	}
 
 	// 标签页内容。
@@ -61,9 +74,9 @@ func NewApp() *App {
 	for i, name := range tabNames {
 		var content tview.Primitive
 		if i == 0 {
-			content = a.buildFilesPage() // 文件页（含底部操作栏）
+			content = a.buildFilesPage() // 文件页（含输出目录与底部操作栏）
 		} else {
-			content = buildPage(i)
+			content = a.buildPage(i)
 		}
 		a.pages.AddPage(name, content, true, i == 0)
 	}
@@ -259,6 +272,20 @@ func (a *App) renderFooter() {
 	} else {
 		a.footer.SetText(" A/D：切换    方向键：选择 ")
 	}
+}
+
+// refreshAllPages 加载配置后刷新所有选项页。
+func (a *App) refreshAllPages() {
+	if a.videoList != nil {
+		a.refreshVideoPage()
+	}
+	if a.audioList != nil {
+		a.refreshAudioPage()
+	}
+	if a.settingsList != nil {
+		a.refreshSettingsPage()
+	}
+	a.updateOutputDirButton()
 }
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出。

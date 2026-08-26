@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -9,26 +10,32 @@ import (
 
 // buildPage 根据标签序号返回对应的内容页（与 tabNames 顺序一致）。
 // 序号 0（文件页）由 App.buildFilesPage 构建，这里处理其余页面。
-func buildPage(index int) tview.Primitive {
+func (a *App) buildPage(index int) tview.Primitive {
 	switch index {
 	case 1:
-		return buildVideoPage()
+		return a.buildVideoPage()
 	case 2:
-		return buildAudioPage()
+		return a.buildAudioPage()
 	case 3:
 		return buildTasksPage()
 	default:
-		return buildSettingsPage()
+		return a.buildSettingsPage()
 	}
 }
 
 // buildFilesPage 构建「文件」页：
 //
-//	文件列表（初始为空）+ 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
+//	输出目录行 + 文件列表（初始为空，通过 [添加文件] 添加，Delete 移除）
+//	+ 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
 //
 // 底部操作栏位于页面边框之内、按键说明之上。
 func (a *App) buildFilesPage() tview.Primitive {
 	a.filesList = tview.NewList()
+
+	// 输出目录（选项）：默认与输入文件相同（$file = 输入文件所在目录）。
+	a.outputDirBtn = tview.NewButton("")
+	a.updateOutputDirButton()
+	a.outputDirBtn.SetSelectedFunc(func() { a.editOutputDir() })
 
 	// 底部操作栏：[添加文件] [设置输出容器] …… 输出容器：xxx
 	addBtn := tview.NewButton("[添加文件]")
@@ -36,8 +43,8 @@ func (a *App) buildFilesPage() tview.Primitive {
 	setBtn := tview.NewButton("[设置输出容器]")
 	setBtn.SetSelectedFunc(func() { a.onSetContainer() })
 
-	// 文件页 Tab 焦点循环：文件列表 → [添加文件] → [设置输出容器]
-	a.fileBarFocusables = []tview.Primitive{a.filesList, addBtn, setBtn}
+	// 文件页 Tab 焦点循环：文件列表 → 输出目录 → [添加文件] → [设置输出容器]
+	a.fileBarFocusables = []tview.Primitive{a.filesList, a.outputDirBtn, addBtn, setBtn}
 	// 底部横向按钮组（左右方向键切换）
 	a.fileBarButtons = []tview.Primitive{addBtn, setBtn}
 
@@ -58,61 +65,38 @@ func (a *App) buildFilesPage() tview.Primitive {
 
 	page := tview.NewFlex().SetDirection(tview.FlexRow)
 	page.SetBorder(true)
-	page.SetTitle(" 文件 — 输入文件（示例数据） ")
+	page.SetTitle(" 文件 — 输入文件 ")
+	page.AddItem(a.outputDirBtn, 1, 0, false) // 输出目录行
 	page.AddItem(a.filesList, 0, 1, true)
 	page.AddItem(bar, 1, 0, false)
 	return page
 }
 
-// buildVideoPage 构建「视频」页：视频编码选项（beta0.1 为示例数据）。
-func buildVideoPage() tview.Primitive {
-	list := tview.NewList()
-	list.SetBorder(true)
-	list.SetTitle(" 视频 — 编码选项（示例数据） ")
-	list.AddItem("编码器", "当前：libx264", 0, nil)
-	list.AddItem("码率", "当前：4000 kbps", 0, nil)
-	list.AddItem("分辨率", "当前：1920×1080", 0, nil)
-	list.AddItem("帧率", "当前：30 fps", 0, nil)
-	list.AddItem("像素格式", "当前：yuv420p", 0, nil)
-	list.AddItem("—", "beta0.1：仅演示界面，暂不支持修改选项", 0, nil)
-	return list
+// updateOutputDirButton 刷新输出目录按钮文本。
+func (a *App) updateOutputDirButton() {
+	if a.outputDirBtn == nil {
+		return
+	}
+	label := a.cfg.OutputDir
+	if label == "" || label == "$file" {
+		label = "与输入文件相同（$file）"
+	}
+	a.outputDirBtn.SetLabel("输出目录：" + label)
 }
 
-// buildAudioPage 构建「音频」页：音频编码选项（beta0.1 为示例数据）。
-func buildAudioPage() tview.Primitive {
-	list := tview.NewList()
-	list.SetBorder(true)
-	list.SetTitle(" 音频 — 编码选项（示例数据） ")
-	list.AddItem("编码器", "当前：aac", 0, nil)
-	list.AddItem("码率", "当前：192 kbps", 0, nil)
-	list.AddItem("采样率", "当前：48000 Hz", 0, nil)
-	list.AddItem("声道数", "当前：2（立体声）", 0, nil)
-	list.AddItem("音量增益", "当前：0 dB", 0, nil)
-	list.AddItem("—", "beta0.1：仅演示界面，暂不支持修改选项", 0, nil)
-	return list
+// editOutputDir 编辑输出目录：空或 $file 表示与输入文件相同；
+// 输入文件在不同目录时分别输出到与之对应的目录。
+func (a *App) editOutputDir() {
+	a.showInputDialog("输出目录（$file = 输入文件所在目录，留空表示与输入文件相同）", a.cfg.OutputDir, func(text string) {
+		a.cfg.OutputDir = strings.TrimSpace(text)
+		a.updateOutputDirButton()
+	})
 }
 
-// buildTasksPage 构建「任务」页：转码队列（beta0.1 为示例数据）。
+// buildTasksPage 构建「任务」页（暂无内容）。
 func buildTasksPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
-	list.SetTitle(" 任务 — 转码队列（示例数据） ")
-	list.AddItem("转码 sample.mp4 → output.mp4", "状态：排队中 · 进度 0%", 0, nil)
-	list.AddItem("转码 video.mkv → output.mkv", "状态：等待 · 进度 0%", 0, nil)
-	list.AddItem("—", "beta0.1：仅演示界面，暂不支持真实任务", 0, nil)
-	return list
-}
-
-// buildSettingsPage 构建「设置」页：全局选项（beta0.1 为示例数据）。
-func buildSettingsPage() tview.Primitive {
-	list := tview.NewList()
-	list.SetBorder(true)
-	list.SetTitle(" 设置 — 全局选项（示例数据） ")
-	list.AddItem("输出目录", "当前：./output", 0, nil)
-	list.AddItem("覆盖模式", "当前：询问", 0, nil)
-	list.AddItem("线程数", "当前：自动", 0, nil)
-	list.AddItem("硬件加速", "当前：关闭", 0, nil)
-	list.AddItem("日志级别", "当前：info", 0, nil)
-	list.AddItem("—", "beta0.1：仅演示界面，暂不支持修改选项", 0, nil)
+	list.SetTitle(" 任务 ")
 	return list
 }

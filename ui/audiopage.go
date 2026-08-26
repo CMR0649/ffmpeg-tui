@@ -1,0 +1,140 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/rivo/tview"
+)
+
+// buildAudioPage 构建「音频」页：编码器 / 比特率 / 采样率 / 位深度。
+// 选项与取值以 FFmpeg 官方文档为准。
+func (a *App) buildAudioPage() tview.Primitive {
+	list := tview.NewList()
+	list.SetBorder(true)
+	list.SetTitle(" 音频 — 编码选项 ")
+	a.audioList = list
+	a.refreshAudioPage()
+	return list
+}
+
+// refreshAudioPage 按当前配置重建音频页选项列表。
+func (a *App) refreshAudioPage() {
+	l := a.audioList
+	l.Clear()
+	l.AddItem("编码器", a.audioEncoderLabel(), 0, func() { a.editAudioEncoder() })
+	l.AddItem("比特率", a.audioBitrateLabel(), 0, func() { a.editAudioBitrate() })
+	l.AddItem("采样率", a.sampleRateLabel(), 0, func() { a.editSampleRate() })
+	l.AddItem("位深度", a.bitDepthLabel(), 0, func() { a.editBitDepth() })
+}
+
+// editAudioEncoder 编码器（默认复制流）。
+func (a *App) editAudioEncoder() {
+	labels := make([]string, len(audioEncoders))
+	for i, e := range audioEncoders {
+		labels[i] = e.Label
+	}
+	a.showOptionDialog("编码器（默认复制流）", labels, func(i int) {
+		e := audioEncoders[i]
+		a.cfg.AudioEncoder = e.Name
+		if e.Wav {
+			// WAV/PCM：默认 16-bit，位深度与编码器名称同步
+			a.cfg.AudioEncoder = "pcm_s16le"
+			a.cfg.BitDepth = "16"
+		}
+		a.refreshAudioPage()
+	})
+}
+
+// audioEncoderLabel 编码器项的当前值显示。
+func (a *App) audioEncoderLabel() string {
+	if a.cfg.AudioEncoder == "" {
+		return "复制流（默认）"
+	}
+	if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") && a.cfg.BitDepth != "" {
+		return a.cfg.AudioEncoder + "（WAV " + a.cfg.BitDepth + "-bit）"
+	}
+	for _, e := range audioEncoders {
+		if e.Name == a.cfg.AudioEncoder {
+			return a.cfg.AudioEncoder + "（" + e.Label + "）"
+		}
+	}
+	return a.cfg.AudioEncoder
+}
+
+// audioIsWav 报告当前音频编码器是否为 WAV/PCM（位深度与编码器名称同步）。
+func (a *App) audioIsWav() bool {
+	if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") {
+		return true
+	}
+	for _, e := range audioEncoders {
+		if e.Name == a.cfg.AudioEncoder {
+			return e.Wav
+		}
+	}
+	return false
+}
+
+// editAudioBitrate 比特率输入（kbps）。
+func (a *App) editAudioBitrate() {
+	a.showInputDialog("比特率（kbps）", a.cfg.AudioBitrate, func(text string) {
+		a.cfg.AudioBitrate = strings.TrimSpace(text)
+		a.refreshAudioPage()
+	})
+}
+
+// audioBitrateLabel 比特率项的当前值显示。
+func (a *App) audioBitrateLabel() string {
+	if a.cfg.AudioBitrate == "" {
+		return "—"
+	}
+	return a.cfg.AudioBitrate + " kbps"
+}
+
+// editSampleRate 采样率选择。
+func (a *App) editSampleRate() {
+	a.showOptionDialog("采样率（Hz）", sampleRates, func(i int) {
+		if sampleRates[i] == "原始" {
+			a.cfg.SampleRate = ""
+		} else {
+			a.cfg.SampleRate = sampleRates[i]
+		}
+		a.refreshAudioPage()
+	})
+}
+
+// sampleRateLabel 采样率项的当前值显示。
+func (a *App) sampleRateLabel() string {
+	if a.cfg.SampleRate == "" {
+		return "原始"
+	}
+	return a.cfg.SampleRate + " Hz"
+}
+
+// editBitDepth 位深度：仅 WAV/PCM 编码器有效，且与编码器名称同步。
+func (a *App) editBitDepth() {
+	if !a.audioIsWav() {
+		a.showMessageDialog("位深度（与编码器名称同步）", "位深度仅对 WAV/PCM 编码器有效（与编码器名称同步）。")
+		return
+	}
+	labels := make([]string, len(bitDepths))
+	for i, b := range bitDepths {
+		labels[i] = b.Label
+	}
+	a.showOptionDialog("位深度（与编码器名称同步）", labels, func(i int) {
+		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i].Label, "-bit")
+		a.cfg.AudioEncoder = bitDepths[i].Name // 与编码器名称同步
+		a.refreshAudioPage()
+	})
+}
+
+// bitDepthLabel 位深度项的当前值显示。
+func (a *App) bitDepthLabel() string {
+	if !a.audioIsWav() {
+		return "编码器不支持"
+	}
+	if a.cfg.BitDepth == "" {
+		return "16-bit"
+	}
+	return fmt.Sprintf("%s-bit", a.cfg.BitDepth)
+}
