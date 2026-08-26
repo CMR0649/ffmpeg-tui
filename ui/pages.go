@@ -1,12 +1,16 @@
 package ui
 
-import "github.com/rivo/tview"
+import (
+	"fmt"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
 
 // buildPage 根据标签序号返回对应的内容页（与 tabNames 顺序一致）。
+// 序号 0（文件页）由 App.buildFilesPage 构建，这里处理其余页面。
 func buildPage(index int) tview.Primitive {
 	switch index {
-	case 0:
-		return buildFilesPage()
 	case 1:
 		return buildVideoPage()
 	case 2:
@@ -18,17 +22,48 @@ func buildPage(index int) tview.Primitive {
 	}
 }
 
-// buildFilesPage 构建「文件」页：输入文件列表（beta0.1 为示例数据）。
-func buildFilesPage() tview.Primitive {
-	list := tview.NewList()
-	list.SetBorder(true)
-	list.SetTitle(" 文件 — 输入文件（示例数据） ")
-	list.AddItem("sample.mp4", "H.264 · 720p · 00:03:24 · 48.2 MB", 0, nil)
-	list.AddItem("video.mkv", "HEVC · 1080p · 00:12:08 · 1.2 GB", 0, nil)
-	list.AddItem("clip.avi", "MPEG-4 · 480p · 00:00:45 · 21.5 MB", 0, nil)
-	list.AddItem("record.wav", "PCM 16bit · 44.1kHz · 00:01:30 · 15.2 MB", 0, nil)
-	list.AddItem("—", "beta0.1：仅演示界面，暂不支持真实文件操作", 0, nil)
-	return list
+// buildFilesPage 构建「文件」页：
+//
+//	文件列表 + 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
+//
+// 底部操作栏位于页面边框之内、按键说明之上。
+func (a *App) buildFilesPage() tview.Primitive {
+	a.filesList = tview.NewList()
+	a.filesList.AddItem("sample.mp4", "H.264 · 720p · 00:03:24 · 48.2 MB", 0, nil)
+	a.filesList.AddItem("video.mkv", "HEVC · 1080p · 00:12:08 · 1.2 GB", 0, nil)
+	a.filesList.AddItem("clip.avi", "MPEG-4 · 480p · 00:00:45 · 21.5 MB", 0, nil)
+	a.filesList.AddItem("record.wav", "PCM 16bit · 44.1kHz · 00:01:30 · 15.2 MB", 0, nil)
+
+	// 底部操作栏：[添加文件] [设置输出容器] …… 输出容器：xxx
+	addBtn := tview.NewButton("[添加文件]")
+	addBtn.SetSelectedFunc(func() { a.onAddFile() })
+	setBtn := tview.NewButton("[设置输出容器]")
+	setBtn.SetSelectedFunc(func() { a.onSetContainer() })
+
+	// 文件页 Tab 焦点循环：文件列表 → [添加文件] → [设置输出容器]
+	a.fileBarFocusables = []tview.Primitive{a.filesList, addBtn, setBtn}
+
+	a.fileContainerLabel = tview.NewTextView()
+	a.fileContainerLabel.SetTextAlign(tview.AlignRight)
+	a.fileContainerLabel.SetText(fmt.Sprintf("输出容器：%s", a.outputContainer))
+	a.fileContainerLabel.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	a.fileContainerLabel.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+
+	bar := tview.NewFlex()
+	bar.AddItem(addBtn, 0, 1, false)
+	bar.AddItem(nil, 2, 0, false)
+	bar.AddItem(setBtn, 0, 1, false)
+	bar.AddItem(nil, 0, 1, false) // 弹性空白，把容器名推到右侧
+	bar.AddItem(a.fileContainerLabel, 0, 1, false)
+
+	page := tview.NewFlex().SetDirection(tview.FlexRow)
+	page.SetBorder(true)
+	page.SetTitle(" 文件 — 输入文件（示例数据） ")
+	page.AddItem(a.filesList, 0, 1, true)
+	page.AddItem(bar, 1, 0, false)
+	return page
 }
 
 // buildVideoPage 构建「视频」页：视频编码选项（beta0.1 为示例数据）。

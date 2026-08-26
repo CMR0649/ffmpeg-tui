@@ -19,17 +19,50 @@ var tabNames = []string{"文件", "视频", "音频", "任务", "设置"}
 // App 组装整个 TUI 界面。
 type App struct {
 	tviewApp  *tview.Application
-	pages     *tview.Pages
+	pages     *tview.Pages // 标签页内容
+	rootPages *tview.Pages // 根页面：main（主界面）+ dialog（模态对话框）
 	tabBar    *tview.TextView
 	tabRanges []struct{ start, end int } // 各标签在标签栏中的横向范围（鼠标点击用）
 	current   int
+
+	// 文件页状态
+	filesList          *tview.List
+	fileContainerLabel *tview.TextView
+	outputContainer    string
+	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 添加文件 / 设置输出容器
+
+	// 对话框状态
+	dialogOpen       bool
+	dialogFocusables []tview.Primitive // 对话框内可聚焦组件（Tab 循环）
+	dialogFocusIndex int
 }
 
 // NewApp 创建并初始化应用。
 func NewApp() *App {
-	pages := tview.NewPages()
+	// 统一使用单线边框：tview 默认在获得焦点时切换为双线边框，
+	// 与界面设计（┌─┐ 样式）不符，这里固定为单线。
+	tview.Borders.HorizontalFocus = tview.BoxDrawingsLightHorizontal
+	tview.Borders.VerticalFocus = tview.BoxDrawingsLightVertical
+	tview.Borders.TopLeftFocus = tview.BoxDrawingsLightDownAndRight
+	tview.Borders.TopRightFocus = tview.BoxDrawingsLightDownAndLeft
+	tview.Borders.BottomLeftFocus = tview.BoxDrawingsLightUpAndRight
+	tview.Borders.BottomRightFocus = tview.BoxDrawingsLightUpAndLeft
+
+	a := &App{
+		tviewApp:        tview.NewApplication(),
+		outputContainer: "mp4",
+	}
+
+	// 标签页内容。
+	a.pages = tview.NewPages()
 	for i, name := range tabNames {
-		pages.AddPage(name, buildPage(i), true, i == 0)
+		var content tview.Primitive
+		if i == 0 {
+			content = a.buildFilesPage() // 文件页（含底部操作栏）
+		} else {
+			content = buildPage(i)
+		}
+		a.pages.AddPage(name, content, true, i == 0)
 	}
 
 	// 文本区显式样式：白字黑底。
@@ -44,6 +77,7 @@ func NewApp() *App {
 	tabBar.SetWordWrap(false)
 	tabBar.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	tabBar.SetTextStyle(textStyle)
+	a.tabBar = tabBar
 
 	version := tview.NewTextView()
 	version.SetDynamicColors(true)
@@ -62,17 +96,16 @@ func NewApp() *App {
 	footer.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	footer.SetTextStyle(textStyle)
 
-	root := tview.NewFlex().SetDirection(tview.FlexRow)
-	root.AddItem(topBar, 1, 0, false)
-	root.AddItem(pages, 0, 1, true)
-	root.AddItem(footer, 1, 0, false)
+	mainRoot := tview.NewFlex().SetDirection(tview.FlexRow)
+	mainRoot.AddItem(topBar, 1, 0, false)
+	mainRoot.AddItem(a.pages, 0, 1, true)
+	mainRoot.AddItem(footer, 1, 0, false)
 
-	a := &App{
-		tviewApp: tview.NewApplication(),
-		pages:    pages,
-		tabBar:   tabBar,
-	}
-	a.tviewApp.SetRoot(root, true)
+	// 根页面：主界面 + 模态对话框层。
+	a.rootPages = tview.NewPages()
+	a.rootPages.AddPage("main", mainRoot, true, true)
+
+	a.tviewApp.SetRoot(a.rootPages, true)
 	a.tviewApp.EnableMouse(true)
 	a.tviewApp.SetInputCapture(a.handleKeys)
 	a.tabBar.SetMouseCapture(a.handleTabBarClick)
@@ -116,6 +149,34 @@ func (a *App) renderTabBar() {
 	a.tabBar.SetText(sb.String())
 }
 
+// fileBarFocusNext / fileBarFocusPrev 在文件页组件（文件列表/添加文件/设置输出容器）间循环焦点。
+func (a *App) fileBarFocusNext() {
+	n := len(a.fileBarFocusables)
+	if n == 0 {
+		return
+	}
+	a.tviewApp.SetFocus(a.fileBarFocusables[(a.fileBarCurrentIndex()+1)%n])
+}
+
+func (a *App) fileBarFocusPrev() {
+	n := len(a.fileBarFocusables)
+	if n == 0 {
+		return
+	}
+	a.tviewApp.SetFocus(a.fileBarFocusables[(a.fileBarCurrentIndex()-1+n)%n])
+}
+
+// fileBarCurrentIndex 返回当前焦点在文件页组件列表中的下标（不在列表中时视为 0）。
+func (a *App) fileBarCurrentIndex() int {
+	cur := a.tviewApp.GetFocus()
+	for i, p := range a.fileBarFocusables {
+		if p == cur {
+			return i
+		}
+	}
+	return 0
+}
+
 // switchTab 切换到第 i 个标签（越界自动循环）。
 func (a *App) switchTab(i int) {
 	n := len(tabNames)
@@ -130,12 +191,41 @@ func (a *App) switchTab(i int) {
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出。
 // 方向键由当前页面的列表组件自行处理（用于选择项目）。
+// 对话框打开时：Esc 关闭对话框，其余按键交给对话框组件。
 func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Key() {
-	case tcell.KeyCtrlC, tcell.KeyEscape:
+	case tcell.KeyCtrlC:
+		a.tviewApp.Stop()
+		return nil
+	case tcell.KeyTab:
+		if a.dialogOpen {
+			a.dialogFocusNext()
+			return nil
+		}
+		if a.current == 0 { // 文件页：Tab 在 文件列表/添加文件/设置输出容器 间循环
+			a.fileBarFocusNext()
+			return nil
+		}
+	case tcell.KeyBacktab:
+		if a.dialogOpen {
+			a.dialogFocusPrev()
+			return nil
+		}
+		if a.current == 0 { // 文件页：Shift-Tab 反向循环
+			a.fileBarFocusPrev()
+			return nil
+		}
+	case tcell.KeyEscape:
+		if a.dialogOpen {
+			a.closeDialog()
+			return nil
+		}
 		a.tviewApp.Stop()
 		return nil
 	case tcell.KeyRune:
+		if a.dialogOpen {
+			return event // 对话框打开时，A/D 不切换标签，按键交给对话框
+		}
 		switch event.Rune() {
 		case 'a', 'A':
 			a.switchTab(a.current - 1)
@@ -154,6 +244,9 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 // handleTabBarClick 支持鼠标点击标签栏切换标签。
 func (a *App) handleTabBarClick(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 	if action != tview.MouseLeftClick {
+		return action, event
+	}
+	if a.dialogOpen { // 对话框打开时不切换标签
 		return action, event
 	}
 	x, y := event.Position()
