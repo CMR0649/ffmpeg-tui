@@ -22,7 +22,7 @@
 
 两种方式任选其一：
 
-### 方式一：本地构建（需安装 Go 工具链）
+### 方式一：本地构建（需安装 Go 工具链，要求 Go 1.24+）
 
 - Linux/macOS：`./build.sh`
 - Windows：`build.bat`
