@@ -98,21 +98,21 @@ func (a *App) editVideoDecoder() {
 // videoDecoderLabel 解码器项的当前值显示。
 func (a *App) videoDecoderLabel() string {
 	if a.cfg.VideoDecoder == "" {
-		return "空"
+		return "自动选择"
 	}
 	return a.cfg.VideoDecoder
 }
 
 func (a *App) editVideoPreset() {
 	if !a.videoEncoderHasPreset() {
-		a.showMessageDialog("预设（视编码器而定）", "当前编码器不提供 preset 选项（视编码器而定）。")
+		a.showMessageDialog("预设", "当前编码器不提供 preset 选项")
 		return
 	}
 	values := presetValuesFor(a.cfg.VideoEncoder)
 	if len(values) == 0 {
 		values = x264Presets
 	}
-	a.showOptionDialog("预设（视编码器而定）", values, func(i int) {
+	a.showOptionDialog("预设", values, func(i int) {
 		a.cfg.VideoPreset = values[i]
 		a.refreshVideoPage()
 	})

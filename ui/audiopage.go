@@ -82,7 +82,7 @@ func (a *App) audioBitrateLabel() string {
 
 // editSampleRate 采样率选择。
 func (a *App) editSampleRate() {
-	a.showOptionDialog("采样率（Hz）", sampleRates, func(i int) {
+	a.showOptionDialog("采样率", sampleRates, func(i int) {
 		if sampleRates[i] == "原始" {
 			a.cfg.SampleRate = ""
 		} else {
@@ -108,7 +108,7 @@ func (a *App) editBitDepth() {
 	for i, b := range bitDepths {
 		labels[i] = b.Label
 	}
-	a.showOptionDialog("位深度（-sample_fmt s[位深]）", labels, func(i int) {
+	a.showOptionDialog("位深度", labels, func(i int) {
 		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i].Label, "-bit")
 		if a.audioIsWav() {
 			a.cfg.AudioEncoder = bitDepths[i].Name // WAV/PCM：与编码器名称同步

@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// Config 保存全部可配置选项（视频/音频/文件输出/设置）。
-// 选项名与取值以 FFmpeg 官方文档（https://ffmpeg.org/documentation.html）为准。
 type Config struct {
 	// 视频
 	VideoDecoder string `json:"video_decoder"` // 可为空

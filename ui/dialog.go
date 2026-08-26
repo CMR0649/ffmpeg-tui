@@ -166,7 +166,7 @@ func (a *App) startOptionSearch() {
 		return
 	}
 	a.searching = true
-	a.showInputDialog("搜索（输入关键字过滤）", d.filter, func(text string) {
+	a.showInputDialog("搜索", d.filter, func(text string) {
 		a.searching = false
 		d.filter = strings.TrimSpace(text)
 		a.buildOptionDialog()

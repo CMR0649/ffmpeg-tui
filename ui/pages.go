@@ -23,21 +23,14 @@ func (a *App) buildPage(index int) tview.Primitive {
 	}
 }
 
-// buildFilesPage 构建「文件」页：
-//
-//	输出目录行 + 文件列表（初始为空，通过 [添加文件] 添加，Delete 移除）
-//	+ 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
-//
-// 底部操作栏位于页面边框之内、按键说明之上。
 func (a *App) buildFilesPage() tview.Primitive {
 	a.filesList = tview.NewList()
 
-	// 输出目录（选项）：默认与输入文件相同（$file = 输入文件所在目录）。
+	// 输出目录（选项）：默认与输入文件相同
 	a.outputDirBtn = tview.NewButton("")
 	a.updateOutputDirButton()
 	a.outputDirBtn.SetSelectedFunc(func() { a.editOutputDir() })
 
-	// 底部操作栏：[添加文件] [设置输出容器] …… 输出容器：xxx
 	addBtn := tview.NewButton("[添加文件]")
 	addBtn.SetSelectedFunc(func() { a.onAddFile() })
 	setBtn := tview.NewButton("[设置输出容器]")
@@ -79,7 +72,7 @@ func (a *App) updateOutputDirButton() {
 	}
 	label := a.cfg.OutputDir
 	if label == "" || label == "$file" {
-		label = "与输入文件相同（$file）"
+		label = "与输入文件相同"
 	}
 	a.outputDirBtn.SetLabel("输出目录：" + label)
 }

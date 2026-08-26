@@ -30,8 +30,8 @@ func (a *App) refreshSettingsPage() {
 	l.AddItem("输出选项", a.outputNamingLabel(), 0, func() { a.editOutputNaming() })
 	l.AddItem("指定后缀", a.suffixLabel(), 0, func() { a.editSuffix() })
 	l.AddItem("导出配置", "导出当前配置为 JSON 文件", 0, func() { a.exportConfig() })
-	l.AddItem("加载配置", "从 JSON 文件加载配置", 0, func() { a.loadConfig() })
-	l.AddItem("指定默认配置", "保存当前配置为启动时加载的默认配置", 0, func() { a.saveAsDefault() })
+	l.AddItem("默认配置", "从 JSON 文件加载配置", 0, func() { a.loadConfig() })
+	l.AddItem("默认配置", "保存当前配置为启动时加载的默认配置", 0, func() { a.saveAsDefault() })
 }
 
 // editOutputNaming 输出选项（添加时间 / 指定后缀 / 不添加后缀）。
@@ -60,7 +60,7 @@ func (a *App) outputNamingLabel() string {
 	case "none":
 		return "不添加后缀"
 	default:
-		return "添加时间（默认）[文件名]_YYYY-M-D-hhmmss"
+		return "添加时间"
 	}
 }
 

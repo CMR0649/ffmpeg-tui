@@ -41,7 +41,7 @@ func (e *EncoderInfo) HasOption(name string) bool {
 	return false
 }
 
-// loadCodecLists 加载编码器/解码器列表（幂等，直接使用 ffmpeg 命令）。
+// loadCodecLists 加载编码器/解码器列表
 func loadCodecLists() {
 	if len(videoEncoders) > 0 || len(audioEncoders) > 0 {
 		return
@@ -131,7 +131,7 @@ func codecListFromCmd(bin string, args ...string) (video, audio []string) {
 	return parseCodecList(string(out))
 }
 
-// probeEncoder 运行 `ffmpeg -h encoder=名称` 获取编码器详情（带缓存）。
+// probeEncoder 运行 `ffmpeg -h encoder=名称` 获取编码器详情
 func probeEncoder(name string) *EncoderInfo {
 	if info, ok := encoderInfoCache[name]; ok {
 		return info
