@@ -526,13 +526,10 @@ func (a *App) showAboutDialog() {
 		Foreground(tview.Styles.PrimaryTextColor).
 		Background(tview.Styles.PrimitiveBackgroundColor))
 
-	github := tview.NewButton("[" + a.s.AboutGitHub + "]")
-	github.SetStyle(tcell.StyleDefault.
-		Background(tview.Styles.PrimitiveBackgroundColor).
-		Foreground(tcell.ColorBlue))
-	github.SetActivatedStyle(tcell.StyleDefault.
-		Background(tcell.ColorBlue).
-		Foreground(tcell.ColorWhite))
+	github := tview.NewButton(a.s.AboutGitHub) // 标签直接为 GitHub（不带方括号，避免被解析为颜色标签）
+	// 白字蓝底（普通与聚焦状态一致），符合需求。
+	github.SetStyle(tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.ColorWhite))
+	github.SetActivatedStyle(tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.ColorWhite))
 	github.SetSelectedFunc(func() {
 		a.closeDialog()
 		_ = openURL("https://github.com/CMR0649/ffmpeg-tui")

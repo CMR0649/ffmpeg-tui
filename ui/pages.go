@@ -33,8 +33,10 @@ func (a *App) buildFilesPage() tview.Primitive {
 
 	addBtn := tview.NewButton(a.s.AddFile)
 	addBtn.SetSelectedFunc(func() { a.onAddFile() })
+	a.filesAddBtn = addBtn
 	setBtn := tview.NewButton(a.s.SetContainer)
 	setBtn.SetSelectedFunc(func() { a.onSetContainer() })
+	a.filesSetBtn = setBtn
 
 	// 文件页 Tab 焦点循环：文件列表 → 输出目录 → [添加文件] → [设置输出容器]
 	a.fileBarFocusables = []tview.Primitive{a.filesList, a.outputDirBtn, addBtn, setBtn}
@@ -59,6 +61,7 @@ func (a *App) buildFilesPage() tview.Primitive {
 	page := tview.NewFlex().SetDirection(tview.FlexRow)
 	page.SetBorder(true)
 	page.SetTitle(" " + a.s.FilesTitle + " ")
+	a.filesPage = page
 	page.AddItem(a.outputDirBtn, 1, 0, false) // 输出目录行
 	page.AddItem(a.filesList, 0, 1, true)
 	page.AddItem(bar, 1, 0, false)

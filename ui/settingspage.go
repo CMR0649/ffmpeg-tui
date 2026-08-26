@@ -129,7 +129,26 @@ func (a *App) setLanguage(lang string) {
 	a.cfg.Lang = lang
 	a.lang = lang
 	a.s = langStrings(lang)
-	a.refreshAllPages()
+	// 重建选项页与任务页（数据在 cfg / a.tasks 中），刷新页面标题与按钮文本。
+	for _, i := range []int{1, 2, 3, 4} {
+		a.pages.RemovePage(tabKeys[i])
+		a.pages.AddPage(tabKeys[i], a.buildPage(i), true, false)
+	}
+	a.refreshTasks()
+	// 文件页：更新标题与底部按钮文本。
+	if a.filesPage != nil {
+		a.filesPage.SetTitle(" " + a.s.FilesTitle + " ")
+	}
+	if a.filesAddBtn != nil {
+		a.filesAddBtn.SetLabel(a.s.AddFile)
+	}
+	if a.filesSetBtn != nil {
+		a.filesSetBtn.SetLabel(a.s.SetContainer)
+	}
+	a.updateOutputDirButton()
+	if a.fileContainerLabel != nil {
+		a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
+	}
 	a.renderTabBar()
 	a.renderFooter()
 }

@@ -38,6 +38,9 @@ type App struct {
 	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 输出目录 / 添加文件 / 设置输出容器
 	fileBarButtons     []tview.Primitive // 文件页底部横向按钮组：[添加文件] [设置输出容器]（左右键切换）
 	outputDirBtn       *tview.Button     // 输出目录选项行
+	filesAddBtn        *tview.Button     // 文件页 [添加文件]
+	filesSetBtn        *tview.Button     // 文件页 [设置输出容器]
+	filesPage          *tview.Flex       // 文件页容器（标题刷新）
 	files              []string          // 文件页中的文件路径列表（生成任务用）
 
 	// 任务页状态
