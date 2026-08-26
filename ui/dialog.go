@@ -123,6 +123,9 @@ func (a *App) showOptionDialog(title string, options []string, confirm func(int)
 	if height < 8 {
 		height = 8
 	}
+	if height > 14 {
+		height = 14 // 编码器/解码器列表可能很长，限制对话框高度（列表内部滚动）
+	}
 	a.dialogButtons = []tview.Primitive{ok, cancel}
 	a.showDialog(a.buildDialogBox(title, list, 36, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
 }
@@ -209,6 +212,7 @@ func (a *App) pickFileFromSystem() {
 func (a *App) addFilePath(path string) {
 	idx := a.filesList.GetItemCount()
 	a.filesList.AddItem(filepath.Base(path), "正在读取文件信息…", 0, nil)
+	a.files = append(a.files, path)
 	a.tviewApp.SetFocus(a.filesList)
 	go func() {
 		info := probeFile(path)

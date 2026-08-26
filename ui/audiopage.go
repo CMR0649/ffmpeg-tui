@@ -8,7 +8,7 @@ import (
 )
 
 // buildAudioPage 构建「音频」页：编码器 / 比特率 / 采样率 / 位深度。
-// 选项与取值以 FFmpeg 官方文档为准。
+// 编码器列表从 ffmpeg-encoders.txt（或 ffmpeg 命令）动态加载。
 func (a *App) buildAudioPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
@@ -28,19 +28,21 @@ func (a *App) refreshAudioPage() {
 	l.AddItem("位深度", a.bitDepthLabel(), 0, func() { a.editBitDepth() })
 }
 
-// editAudioEncoder 编码器（默认复制流）。
+// editAudioEncoder 编码器（默认复制流），列表动态加载。
 func (a *App) editAudioEncoder() {
-	labels := make([]string, len(audioEncoders))
-	for i, e := range audioEncoders {
-		labels[i] = e.Label
-	}
+	loadCodecLists()
+	labels := make([]string, 0, len(audioEncoders)+1)
+	labels = append(labels, "复制流（默认）")
+	labels = append(labels, audioEncoders...)
 	a.showOptionDialog("编码器（默认复制流）", labels, func(i int) {
-		e := audioEncoders[i]
-		a.cfg.AudioEncoder = e.Name
-		if e.Wav {
-			// WAV/PCM：默认 16-bit，位深度与编码器名称同步
-			a.cfg.AudioEncoder = "pcm_s16le"
-			a.cfg.BitDepth = "16"
+		if i == 0 {
+			a.cfg.AudioEncoder = ""
+			a.refreshAudioPage()
+			return
+		}
+		a.cfg.AudioEncoder = audioEncoders[i-1]
+		if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") {
+			a.cfg.BitDepth = "16" // WAV/PCM 默认 16-bit，与编码器名称同步
 		}
 		a.refreshAudioPage()
 	})
@@ -54,25 +56,12 @@ func (a *App) audioEncoderLabel() string {
 	if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") && a.cfg.BitDepth != "" {
 		return a.cfg.AudioEncoder + "（WAV " + a.cfg.BitDepth + "-bit）"
 	}
-	for _, e := range audioEncoders {
-		if e.Name == a.cfg.AudioEncoder {
-			return a.cfg.AudioEncoder + "（" + e.Label + "）"
-		}
-	}
 	return a.cfg.AudioEncoder
 }
 
 // audioIsWav 报告当前音频编码器是否为 WAV/PCM（位深度与编码器名称同步）。
 func (a *App) audioIsWav() bool {
-	if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") {
-		return true
-	}
-	for _, e := range audioEncoders {
-		if e.Name == a.cfg.AudioEncoder {
-			return e.Wav
-		}
-	}
-	return false
+	return strings.HasPrefix(a.cfg.AudioEncoder, "pcm_")
 }
 
 // editAudioBitrate 比特率输入（kbps）。

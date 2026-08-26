@@ -11,7 +11,7 @@ import (
 )
 
 // Version 是当前版本号。
-const Version = "beta1.0"
+const Version = "beta1.1"
 
 // tabNames 定义顶部标签页（顺序即显示顺序）。
 var tabNames = []string{"文件", "视频", "音频", "任务", "设置"}
@@ -33,6 +33,13 @@ type App struct {
 	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 输出目录 / 添加文件 / 设置输出容器
 	fileBarButtons     []tview.Primitive // 文件页底部横向按钮组：[添加文件] [设置输出容器]（左右键切换）
 	outputDirBtn       *tview.Button     // 输出目录选项行
+	files              []string          // 文件页中的文件路径列表（生成任务用）
+
+	// 任务页状态
+	tasks             []*Task
+	taskList          *tview.List
+	taskBarFocusables []tview.Primitive // 任务页 Tab 循环：任务列表 / 添加任务 / 开始 / 清空
+	taskBarButtons    []tview.Primitive // 任务页底部横向按钮组（左右键切换）
 
 	// 配置与各选项页
 	cfg          *Config
@@ -63,6 +70,9 @@ func NewApp() *App {
 		outputContainer: "mp4",
 		cfg:             DefaultConfig(),
 	}
+
+	// 加载编码器/解码器列表（ffmpeg-encoders.txt / ffmpeg-decoders.txt 或 ffmpeg 命令）。
+	loadCodecLists()
 
 	// 加载默认配置（若存在，来自「指定默认配置」）。
 	if p := defaultConfigPath(); fileExists(p) {
@@ -124,10 +134,40 @@ func NewApp() *App {
 	a.tviewApp.SetRoot(a.rootPages, true)
 	a.tviewApp.EnableMouse(true)
 	a.tviewApp.SetInputCapture(a.handleKeys)
+	a.tviewApp.SetMouseCapture(a.handleMouse)
 	a.tabBar.SetMouseCapture(a.handleTabBarClick)
 	a.renderTabBar()
 	a.renderFooter()
 	return a
+}
+
+// handleMouse 全局鼠标处理：滚轮在列表上滚动选择选项。
+// 标签栏（y=0）的滚轮交给 handleTabBarClick 切换标签。
+func (a *App) handleMouse(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
+	if action != tview.MouseScrollUp && action != tview.MouseScrollDown {
+		return event, action
+	}
+	_, y := event.Position()
+	if y == 0 {
+		return event, action // 标签栏滚轮
+	}
+	if cur, ok := a.tviewApp.GetFocus().(*tview.List); ok {
+		idx := cur.GetCurrentItem()
+		if action == tview.MouseScrollUp {
+			idx--
+		} else {
+			idx++
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= cur.GetItemCount() {
+			idx = cur.GetItemCount() - 1
+		}
+		cur.SetCurrentItem(idx)
+		return nil, 0
+	}
+	return event, action
 }
 
 // Run 启动事件循环。
@@ -166,39 +206,6 @@ func (a *App) renderTabBar() {
 	a.tabBar.SetText(sb.String())
 }
 
-// fileBarFocusNext / fileBarFocusPrev 在文件页组件（文件列表/添加文件/设置输出容器）间循环焦点。
-func (a *App) fileBarFocusNext() {
-	n := len(a.fileBarFocusables)
-	if n == 0 {
-		return
-	}
-	a.tviewApp.SetFocus(a.fileBarFocusables[(a.fileBarCurrentIndex()+1)%n])
-}
-
-func (a *App) fileBarFocusPrev() {
-	n := len(a.fileBarFocusables)
-	if n == 0 {
-		return
-	}
-	a.tviewApp.SetFocus(a.fileBarFocusables[(a.fileBarCurrentIndex()-1+n)%n])
-}
-
-// fileBarCurrentIndex 返回当前焦点在文件页组件列表中的下标（不在列表中时视为 0）。
-func (a *App) fileBarCurrentIndex() int {
-	cur := a.tviewApp.GetFocus()
-	for i, p := range a.fileBarFocusables {
-		if p == cur {
-			return i
-		}
-	}
-	return 0
-}
-
-// focusOnFilesList 报告当前焦点是否在文件列表上。
-func (a *App) focusOnFilesList() bool {
-	return a.tviewApp.GetFocus() == a.filesList
-}
-
 // focusOnDialogList 报告当前焦点是否在对话框的选项列表上（选项对话框）。
 func (a *App) focusOnDialogList() bool {
 	if !a.dialogOpen {
@@ -208,26 +215,15 @@ func (a *App) focusOnDialogList() bool {
 	return ok
 }
 
-// focusOnFileButtons 报告当前焦点是否在文件页底部按钮组上。
-func (a *App) focusOnFileButtons() bool {
-	cur := a.tviewApp.GetFocus()
-	for _, p := range a.fileBarButtons {
-		if p == cur {
-			return true
-		}
-	}
-	return false
-}
-
 // moveHorizontalFocus 处理左/右方向键：当焦点位于横向排列的按钮组
-// （文件页底部 [添加文件] [设置输出容器]，或对话框 [确定] [取消]）时，
-// 在同组按钮间循环切换焦点。返回 true 表示事件已消费。
+// （页面底部按钮组，或对话框 [确定] [取消]）时，在同组按钮间循环切换焦点。
+// 返回 true 表示事件已消费。
 func (a *App) moveHorizontalFocus(left bool) bool {
 	var group []tview.Primitive
 	if a.dialogOpen {
 		group = a.dialogButtons
-	} else if a.current == 0 {
-		group = a.fileBarButtons
+	} else {
+		group = a.pageButtons()
 	}
 	if len(group) == 0 {
 		return false
@@ -301,8 +297,8 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			a.dialogFocusNext()
 			return nil
 		}
-		if a.current == 0 { // 文件页：Tab 在 文件列表/添加文件/设置输出容器 间循环
-			a.fileBarFocusNext()
+		if n := a.pageFocusables(); len(n) > 0 {
+			a.pageFocusNext()
 			return nil
 		}
 	case tcell.KeyBacktab:
@@ -310,14 +306,14 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			a.dialogFocusPrev()
 			return nil
 		}
-		if a.current == 0 { // 文件页：Shift-Tab 反向循环
-			a.fileBarFocusPrev()
+		if len(a.pageFocusables()) > 0 {
+			a.pageFocusPrev()
 			return nil
 		}
 	case tcell.KeyLeft, tcell.KeyRight:
 		// 左/右方向键在横向排列的选项中切换焦点：
-		// 对话框内 [确定]/[取消]、文件页底部 [添加文件]/[设置输出容器]；
-		// 焦点在文件列表时，→ 进入 [添加文件]、← 进入 [设置输出容器]。
+		// 对话框内 [确定]/[取消]、页面底部按钮组；
+		// 焦点在页面列表时，→ 进入第一个按钮、← 进入最后一个按钮。
 		left := event.Key() == tcell.KeyLeft
 		if a.dialogOpen {
 			if a.moveHorizontalFocus(left) {
@@ -335,29 +331,47 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			}
 			return event
 		}
-		if a.current == 0 {
+		if btns := a.pageButtons(); len(btns) > 0 {
 			if a.moveHorizontalFocus(left) {
 				return nil
 			}
-			if a.focusOnFilesList() {
+			if a.focusOnPageList() {
 				if left {
-					a.tviewApp.SetFocus(a.fileBarButtons[len(a.fileBarButtons)-1])
+					a.tviewApp.SetFocus(btns[len(btns)-1])
 				} else {
-					a.tviewApp.SetFocus(a.fileBarButtons[0])
+					a.tviewApp.SetFocus(btns[0])
 				}
 				return nil
 			}
 		}
 	case tcell.KeyUp, tcell.KeyDown:
-		// 文件页：焦点在底部按钮时，↑/↓ 返回文件列表。
-		if !a.dialogOpen && a.current == 0 && a.focusOnFileButtons() {
-			a.tviewApp.SetFocus(a.filesList)
+		up := event.Key() == tcell.KeyUp
+		if a.dialogOpen {
+			// 输入对话框：↑/↓ 在输入框与 [确定]/[取消] 之间切换焦点；
+			// 选项对话框（焦点在列表）时上下键仍用于选择选项。
+			if a.dialogInputOrButtonFocused() {
+				if up {
+					a.dialogFocusPrev()
+				} else {
+					a.dialogFocusNext()
+				}
+				return nil
+			}
+			return event
+		}
+		// 页面：焦点在底部按钮时，↑/↓ 返回页面列表。
+		if len(a.pageButtons()) > 0 && a.focusOnPageButtons() {
+			a.tviewApp.SetFocus(a.pageList())
 			return nil
 		}
 	case tcell.KeyDelete:
-		// 文件界面：Delete 移除当前选中的文件。
+		// 文件界面：Delete 移除当前选中的文件（并同步文件列表数据）。
 		if !a.dialogOpen && a.current == 0 && a.filesList != nil && a.filesList.GetItemCount() > 0 {
-			a.filesList.RemoveItem(a.filesList.GetCurrentItem())
+			idx := a.filesList.GetCurrentItem()
+			a.filesList.RemoveItem(idx)
+			if idx >= 0 && idx < len(a.files) {
+				a.files = append(a.files[:idx], a.files[idx+1:]...)
+			}
 			return nil
 		}
 	case tcell.KeyEscape:
@@ -386,26 +400,138 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// handleTabBarClick 支持鼠标点击标签栏切换标签。
+// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页）。
+func (a *App) pageFocusables() []tview.Primitive {
+	switch a.current {
+	case 0:
+		return a.fileBarFocusables
+	case 3:
+		return a.taskBarFocusables
+	}
+	return nil
+}
+
+// pageButtons 当前页面的底部横向按钮组。
+func (a *App) pageButtons() []tview.Primitive {
+	switch a.current {
+	case 0:
+		return a.fileBarButtons
+	case 3:
+		return a.taskBarButtons
+	}
+	return nil
+}
+
+// pageList 当前页面的主列表。
+func (a *App) pageList() tview.Primitive {
+	switch a.current {
+	case 0:
+		return a.filesList
+	case 3:
+		return a.taskList
+	}
+	return nil
+}
+
+// pageFocusNext / pageFocusPrev 在当前页面的 Tab 焦点循环中移动。
+func (a *App) pageFocusNext() {
+	if p := a.pageList(); p == nil {
+		return
+	}
+	items := a.pageFocusables()
+	if len(items) == 0 {
+		return
+	}
+	a.tviewApp.SetFocus(items[(a.pageCurrentIndex()+1)%len(items)])
+}
+
+func (a *App) pageFocusPrev() {
+	items := a.pageFocusables()
+	if len(items) == 0 {
+		return
+	}
+	a.tviewApp.SetFocus(items[(a.pageCurrentIndex()-1+len(items))%len(items)])
+}
+
+// pageCurrentIndex 当前焦点在当前页面焦点循环中的下标。
+func (a *App) pageCurrentIndex() int {
+	cur := a.tviewApp.GetFocus()
+	for i, p := range a.pageFocusables() {
+		if p == cur {
+			return i
+		}
+	}
+	return 0
+}
+
+// focusOnPageList 报告当前焦点是否在当前页面的主列表上。
+func (a *App) focusOnPageList() bool {
+	cur := a.tviewApp.GetFocus()
+	for _, p := range a.pageFocusables() {
+		if p == cur {
+			return p == a.pageList()
+		}
+	}
+	return false
+}
+
+// focusOnPageButtons 报告当前焦点是否在当前页面底部按钮组上。
+func (a *App) focusOnPageButtons() bool {
+	cur := a.tviewApp.GetFocus()
+	for _, p := range a.pageButtons() {
+		if p == cur {
+			return true
+		}
+	}
+	return false
+}
+
+// dialogInputOrButtonFocused 报告当前焦点是否在输入框或对话框按钮上
+// （输入对话框场景，用于 ↑/↓ 焦点切换）。
+func (a *App) dialogInputOrButtonFocused() bool {
+	cur := a.tviewApp.GetFocus()
+	if _, ok := cur.(*tview.InputField); ok {
+		return true
+	}
+	for _, p := range a.dialogButtons {
+		if p == cur {
+			return true
+		}
+	}
+	return false
+}
+
+// handleTabBarClick 支持鼠标点击标签栏切换标签，以及滚轮在标签间切换。
 // 在按下（MouseLeftDown）时即切换：tview 的 MouseLeftClick 要求按下与释放
 // 位于同一单元格，真实鼠标点击的微小位移会导致单击事件不产生（表现为
 // 需要双击才切换），因此这里直接响应按下事件。
 func (a *App) handleTabBarClick(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
-	if action != tview.MouseLeftDown {
-		return action, event
-	}
 	if a.dialogOpen { // 对话框打开时不切换标签
 		return action, event
 	}
 	x, y := event.Position()
-	if y != 0 { // 标签栏位于屏幕第一行
-		return action, event
-	}
-	for i, r := range a.tabRanges {
-		if x >= r.start && x < r.end {
-			a.switchTab(i)
-			break
+	switch action {
+	case tview.MouseLeftDown:
+		if y != 0 { // 标签栏位于屏幕第一行
+			return action, event
 		}
+		for i, r := range a.tabRanges {
+			if x >= r.start && x < r.end {
+				a.switchTab(i)
+				break
+			}
+		}
+		return 0, nil
+	case tview.MouseScrollUp, tview.MouseScrollDown:
+		if y != 0 {
+			return action, event
+		}
+		if action == tview.MouseScrollUp {
+			a.switchTab(a.current - 1)
+		} else {
+			a.switchTab(a.current + 1)
+		}
+		return 0, nil
 	}
-	return 0, nil
+	return action, event
 }

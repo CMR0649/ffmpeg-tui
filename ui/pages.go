@@ -17,7 +17,7 @@ func (a *App) buildPage(index int) tview.Primitive {
 	case 2:
 		return a.buildAudioPage()
 	case 3:
-		return buildTasksPage()
+		return a.buildTasksPage()
 	default:
 		return a.buildSettingsPage()
 	}
@@ -91,12 +91,4 @@ func (a *App) editOutputDir() {
 		a.cfg.OutputDir = strings.TrimSpace(text)
 		a.updateOutputDirButton()
 	})
-}
-
-// buildTasksPage 构建「任务」页（暂无内容）。
-func buildTasksPage() tview.Primitive {
-	list := tview.NewList()
-	list.SetBorder(true)
-	list.SetTitle(" 任务 ")
-	return list
 }

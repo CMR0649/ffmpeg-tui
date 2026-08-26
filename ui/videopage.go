@@ -8,7 +8,8 @@ import (
 )
 
 // buildVideoPage 构建「视频」页：编码 / 质量 / 画面 三组选项。
-// 选项与取值以 FFmpeg 官方文档为准。
+// 编码器列表从 ffmpeg-encoders.txt（或 ffmpeg 命令）动态加载，
+// 编码器详情通过 `ffmpeg -h encoder=名称` 获取，选项以 FFmpeg 文档为准。
 func (a *App) buildVideoPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
@@ -42,76 +43,57 @@ func (a *App) refreshVideoPage() {
 
 // ---------- 编码 ----------
 
-// editVideoEncoder 编码器两级选择：先选编码（如 H.264），再选具体编码器（如 libx264）。
+// editVideoEncoder 从动态加载的视频编码器列表中选择编码器（默认复制流）。
 func (a *App) editVideoEncoder() {
-	labels := make([]string, len(videoEncoders))
-	for i, e := range videoEncoders {
-		labels[i] = e.Label
-	}
+	loadCodecLists()
+	labels := make([]string, 0, len(videoEncoders)+1)
+	labels = append(labels, "复制流（默认）")
+	labels = append(labels, videoEncoders...)
 	a.showOptionDialog("编码器（默认复制流）", labels, func(i int) {
-		enc := videoEncoders[i]
-		if len(enc.Encoders) == 0 {
+		if i == 0 {
 			a.cfg.VideoEncoder = ""
 			a.cfg.VideoPreset = ""
 			a.refreshVideoPage()
 			return
 		}
-		if len(enc.Encoders) == 1 {
-			a.cfg.VideoEncoder = enc.Encoders[0]
-			a.cfg.VideoPreset = defaultPreset(enc)
-			a.refreshVideoPage()
-			return
+		name := videoEncoders[i-1]
+		a.cfg.VideoEncoder = name
+		info := probeEncoder(name)
+		if info.HasOption("preset") {
+			a.cfg.VideoPreset = "medium"
+		} else {
+			a.cfg.VideoPreset = ""
 		}
-		a.showOptionDialog(enc.Label, enc.Encoders, func(j int) {
-			a.cfg.VideoEncoder = enc.Encoders[j]
-			a.cfg.VideoPreset = defaultPreset(enc)
-			a.refreshVideoPage()
-		})
+		a.refreshVideoPage()
 	})
 }
 
-// defaultPreset 返回编码的默认预设（x264/x265 为 medium，其余为空）。
-func defaultPreset(enc VideoEncoderInfo) string {
-	if len(enc.Presets) > 0 {
-		return "medium"
-	}
-	return ""
-}
-
-// currentVideoEncoder 返回当前编码器对应的 VideoEncoderInfo（未匹配时返回 nil）。
-func (a *App) currentVideoEncoder() *VideoEncoderInfo {
-	for i := range videoEncoders {
-		for _, name := range videoEncoders[i].Encoders {
-			if name == a.cfg.VideoEncoder {
-				return &videoEncoders[i]
-			}
-		}
-	}
-	return nil
-}
-
-// videoEncoderLabel 编码器项的当前值显示。
+// videoEncoderLabel 编码器项的当前值显示（含 ffmpeg -h 获取的描述）。
 func (a *App) videoEncoderLabel() string {
 	if a.cfg.VideoEncoder == "" {
 		return "复制流（默认）"
 	}
-	for _, e := range videoEncoders {
-		for _, name := range e.Encoders {
-			if name == a.cfg.VideoEncoder {
-				return name + "（" + e.Label + "）"
-			}
-		}
+	info := probeEncoder(a.cfg.VideoEncoder)
+	if info.Description != "" {
+		return a.cfg.VideoEncoder + "（" + info.Description + "）"
 	}
 	return a.cfg.VideoEncoder
 }
 
-// editVideoDecoder 解码器（可以为空）。
+// editVideoDecoder 解码器（可以为空），列表动态加载。
 func (a *App) editVideoDecoder() {
-	a.showOptionDialog("解码器（可以为空）", videoDecoderNames, func(i int) {
-		if videoDecoderNames[i] == "空" {
+	loadCodecLists()
+	names := videoDecoderNames
+	if len(videoDecoders) > 0 {
+		names = make([]string, 0, len(videoDecoders)+1)
+		names = append(names, "空")
+		names = append(names, videoDecoders...)
+	}
+	a.showOptionDialog("解码器（可以为空）", names, func(i int) {
+		if names[i] == "空" {
 			a.cfg.VideoDecoder = ""
 		} else {
-			a.cfg.VideoDecoder = videoDecoderNames[i]
+			a.cfg.VideoDecoder = names[i]
 		}
 		a.refreshVideoPage()
 	})
@@ -125,17 +107,24 @@ func (a *App) videoDecoderLabel() string {
 	return a.cfg.VideoDecoder
 }
 
-// editVideoPreset 预设（视编码器而定）。
+// editVideoPreset 预设（视编码器而定，由 ffmpeg -h 判断是否支持）。
 func (a *App) editVideoPreset() {
-	enc := a.currentVideoEncoder()
-	if enc == nil || len(enc.Presets) == 0 {
+	if !a.videoEncoderHasPreset() {
 		a.showMessageDialog("预设（视编码器而定）", "当前编码器不提供 preset 选项（视编码器而定）。")
 		return
 	}
-	a.showOptionDialog("预设（视编码器而定）", enc.Presets, func(i int) {
-		a.cfg.VideoPreset = enc.Presets[i]
+	a.showOptionDialog("预设（视编码器而定）", x264Presets, func(i int) {
+		a.cfg.VideoPreset = x264Presets[i]
 		a.refreshVideoPage()
 	})
+}
+
+// videoEncoderHasPreset 报告当前编码器是否支持 -preset 选项。
+func (a *App) videoEncoderHasPreset() bool {
+	if a.cfg.VideoEncoder == "" {
+		return false
+	}
+	return probeEncoder(a.cfg.VideoEncoder).HasOption("preset")
 }
 
 // videoPresetLabel 预设项的当前值显示。
@@ -164,10 +153,13 @@ func (a *App) qualityModeLabel() string {
 	return a.cfg.QualityMode
 }
 
-// videoEncoderHasQuality 报告当前编码器是否支持设置质量值。
+// videoEncoderHasQuality 报告当前编码器是否支持设置质量值（-crf / -qscale / -q:v）。
 func (a *App) videoEncoderHasQuality() bool {
-	enc := a.currentVideoEncoder()
-	return enc != nil && enc.HasQuality
+	if a.cfg.VideoEncoder == "" {
+		return false
+	}
+	info := probeEncoder(a.cfg.VideoEncoder)
+	return info.HasOption("crf") || info.HasOption("qscale") || info.HasOption("q:v")
 }
 
 // editQualityValue 质量值：编码器不支持时显示「编码器不支持」。
