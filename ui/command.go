@@ -79,6 +79,7 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 		}
 	}
 
+	args = append(args, "-f", a.outputContainer) // 显式指定输出容器格式
 	args = append(args, output)
 	return args
 }
@@ -92,12 +93,27 @@ func cbrBufsize(bitrate string) string {
 	return strconv.Itoa(n * 2)
 }
 
+// containerExt 格式名 → 常用文件扩展名（未映射时用格式名本身）。
+func containerExt(format string) string {
+	switch format {
+	case "matroska":
+		return "mkv"
+	case "mpegts":
+		return "ts"
+	case "mpeg", "mpegvideo":
+		return "mpg"
+	case "asf":
+		return "wmv"
+	}
+	return format
+}
+
 // outputPath 根据输出目录（$file 规则）与输出命名规则生成输出路径。
 // 输入文件在不同目录时分别输出到与之对应的目录。
 func (a *App) outputPath(input string) string {
 	dir := ResolveOutputDir(a.cfg.OutputDir, input)
 	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
-	ext := "." + a.outputContainer
+	ext := "." + containerExt(a.outputContainer)
 	name := base + ext
 	switch a.cfg.OutputNaming {
 	case "timestamp":

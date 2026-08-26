@@ -279,11 +279,18 @@ func (a *App) addFilePath(path string) {
 	}()
 }
 
-// onSetContainer 处理「设置输出容器」。
+// onSetContainer 处理「设置输出容器」：格式列表来自 `ffmpeg -formats`
+// 中带 E（Muxing）标记的格式，仅这些格式能用作输出容器。
 func (a *App) onSetContainer() {
-	containers := []string{"mp4", "mkv", "avi", "mov", "webm", "flv", "ts", "wmv", "flac", "ogg", "m4a", "mp3", "wav"}
-	a.showOptionDialog("设置输出容器", containers, func(i int) {
-		a.outputContainer = containers[i]
+	loadFormats()
+	if len(outputFormats) == 0 {
+		a.showMessageDialog("输出容器", "无法获取容器格式列表（ffmpeg -formats）。")
+		return
+	}
+	labels := make([]string, len(outputFormats))
+	copy(labels, outputFormats)
+	a.showOptionDialog("输出容器（仅 E 标记的格式）", labels, func(i int) {
+		a.outputContainer = outputFormats[i]
 		a.updateFileBar()
 	})
 }

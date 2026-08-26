@@ -17,6 +17,7 @@ var (
 	audioEncoders []string // 音频编码器（动态）
 	videoDecoders []string // 视频解码器（动态）
 	audioDecoders []string // 音频解码器（动态）
+	outputFormats []string // 可作输出容器的格式（ffmpeg -formats 中带 E 标记）
 
 	encoderInfoCache = map[string]*EncoderInfo{}
 )
@@ -46,6 +47,51 @@ func loadCodecLists() {
 	}
 	videoEncoders, audioEncoders = codecListFromCmd("ffmpeg", "-encoders")
 	videoDecoders, audioDecoders = codecListFromCmd("ffmpeg", "-decoders")
+}
+
+// loadFormats 加载可作输出容器的格式列表（幂等）：
+// `ffmpeg -formats` 输出中，标记第二列为 E（Muxing supported）的格式。
+func loadFormats() {
+	if len(outputFormats) > 0 {
+		return
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return
+	}
+	out, err := exec.Command("ffmpeg", "-formats").Output()
+	if err != nil {
+		return
+	}
+	outputFormats = parseFormats(string(out))
+}
+
+// parseFormats 解析 ffmpeg -formats 输出，返回带 E（muxing）标记的格式名。
+// 数据行第一列是标记（如 "DE"、"D"、"E"、" d"），第二列是格式名；
+// 表头说明行（含 "." 或 "="）被跳过。
+func parseFormats(text string) []string {
+	seen := map[string]bool{}
+	var names []string
+	for _, line := range strings.Split(text, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		flags := f[0]
+		if strings.ContainsAny(flags, ".=") {
+			continue // 表头/说明行
+		}
+		if !strings.Contains(flags, "E") {
+			continue // 只有 E 标记（可封装/输出）的格式才能用作输出容器
+		}
+		name := strings.Split(f[1], ",")[0]
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // codecLineRe 匹配 " V....D libx264  H.264 ..." 行。
