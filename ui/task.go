@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -32,17 +31,17 @@ var timeRe = regexp.MustCompile(`time=(\d+):(\d+):(\d+\.?\d*)`)
 // addTasksFromFiles 把文件页的文件列表生成为转码任务。
 func (a *App) addTasksFromFiles() {
 	if len(a.files) == 0 {
-		a.showMessageDialog("提示", "请先在文件页添加输入文件。")
+		a.showMessageDialog(a.s.Hint, a.s.NoFilesToTask)
 		return
 	}
 	a.tasks = nil
 	for _, input := range a.files {
-		hasVideo, hasAudio := probeStreams(input)
+		hasVideo, hasAudio := a.probeStreams(input)
 		t := &Task{
 			Input:    input,
 			Output:   a.outputPath(input),
-			Status:   "等待中",
-			duration: probeDuration(input),
+			Status:   "waiting",
+			duration: a.probeDuration(input),
 			hasVideo: hasVideo,
 			hasAudio: hasAudio,
 		}
@@ -56,7 +55,7 @@ func (a *App) refreshTasks() {
 	a.taskList.Clear()
 	for _, t := range a.tasks {
 		t.index = a.taskList.GetItemCount()
-		a.taskList.AddItem(taskMainText(t), taskSecondaryText(t), 0, nil)
+		a.taskList.AddItem(taskMainText(t), a.taskSecondaryText(t), 0, nil)
 	}
 }
 
@@ -64,26 +63,26 @@ func taskMainText(t *Task) string {
 	return filepath.Base(t.Input) + " → " + filepath.Base(t.Output)
 }
 
-func taskSecondaryText(t *Task) string {
+func (a *App) taskSecondaryText(t *Task) string {
 	switch t.Status {
-	case "已完成":
-		return "已完成 · 100%"
-	case "转码中":
-		return fmt.Sprintf("转码中 · %.0f%%", t.Progress)
-	case "失败":
+	case "done":
+		return a.s.TaskDone + " · 100%"
+	case "running":
+		return fmt.Sprintf("%s · %.0f%%", a.s.TaskRunning, t.Progress)
+	case "failed":
 		if t.ErrMsg != "" {
-			return "失败：" + t.ErrMsg
+			return a.s.TaskFailed + "：" + t.ErrMsg
 		}
-		return "失败"
+		return a.s.TaskFailed
 	default:
-		return "等待中"
+		return a.s.TaskWaiting
 	}
 }
 
 // updateTask 更新单个任务在列表中的显示。
 func (a *App) updateTask(t *Task) {
 	a.tviewApp.QueueUpdateDraw(func() {
-		a.taskList.SetItemText(t.index, taskMainText(t), taskSecondaryText(t))
+		a.taskList.SetItemText(t.index, taskMainText(t), a.taskSecondaryText(t))
 	})
 }
 
@@ -91,18 +90,18 @@ func (a *App) updateTask(t *Task) {
 func (a *App) startTasks() {
 	go func() {
 		for _, t := range a.tasks {
-			if t.Status != "等待中" {
+			if t.Status != "waiting" {
 				continue
 			}
-			t.Status = "转码中"
+			t.Status = "running"
 			a.updateTask(t)
 			err := a.runTask(t)
 			if err != nil {
-				t.Status = "失败"
+				t.Status = "failed"
 				t.Progress = 0
 				t.ErrMsg = err.Error()
 			} else {
-				t.Status = "已完成"
+				t.Status = "done"
 				t.Progress = 100
 			}
 			a.updateTask(t)
@@ -112,7 +111,7 @@ func (a *App) startTasks() {
 
 // runTask 执行单个转码任务并解析进度；失败时返回 ffmpeg 的错误摘要。
 func (a *App) runTask(t *Task) error {
-	cmd := exec.Command("ffmpeg", a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
+	cmd := exec.Command(a.ffmpegBin(), a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -153,12 +152,8 @@ func (a *App) runTask(t *Task) error {
 }
 
 // probeStreams 用 ffprobe 检测输入文件的视频/音频流。
-func probeStreams(path string) (hasVideo, hasAudio bool) {
-	name := "ffprobe"
-	if runtime.GOOS == "windows" {
-		name = "ffprobe.exe"
-	}
-	out, err := exec.Command(name, "-v", "error", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1", path).Output()
+func (a *App) probeStreams(path string) (hasVideo, hasAudio bool) {
+	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1", path).Output()
 	if err != nil {
 		return false, false
 	}
@@ -177,7 +172,7 @@ func probeStreams(path string) (hasVideo, hasAudio bool) {
 func (a *App) clearFinishedTasks() {
 	kept := make([]*Task, 0, len(a.tasks))
 	for _, t := range a.tasks {
-		if t.Status == "等待中" || t.Status == "转码中" {
+		if t.Status == "waiting" || t.Status == "running" {
 			kept = append(kept, t)
 		}
 	}
@@ -186,12 +181,8 @@ func (a *App) clearFinishedTasks() {
 }
 
 // probeDuration 用 ffprobe 获取媒体时长（秒）。
-func probeDuration(path string) float64 {
-	name := "ffprobe"
-	if runtime.GOOS == "windows" {
-		name = "ffprobe.exe"
-	}
-	out, err := exec.Command(name, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1", path).Output()
+func (a *App) probeDuration(path string) float64 {
+	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1", path).Output()
 	if err != nil {
 		return 0
 	}
@@ -209,11 +200,11 @@ func probeDuration(path string) float64 {
 func (a *App) buildTasksPage() tview.Primitive {
 	a.taskList = tview.NewList()
 
-	addBtn := tview.NewButton("[添加任务]")
+	addBtn := tview.NewButton(a.s.TaskAdd)
 	addBtn.SetSelectedFunc(func() { a.addTasksFromFiles() })
-	startBtn := tview.NewButton("[开始]")
+	startBtn := tview.NewButton(a.s.TaskStart)
 	startBtn.SetSelectedFunc(func() { a.startTasks() })
-	clearBtn := tview.NewButton("[清空]")
+	clearBtn := tview.NewButton(a.s.TaskClear)
 	clearBtn.SetSelectedFunc(func() { a.clearFinishedTasks() })
 
 	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn}
@@ -229,7 +220,7 @@ func (a *App) buildTasksPage() tview.Primitive {
 
 	page := tview.NewFlex().SetDirection(tview.FlexRow)
 	page.SetBorder(true)
-	page.SetTitle(" 任务 ")
+	page.SetTitle(a.s.TasksTitle)
 	page.AddItem(a.taskList, 0, 1, true)
 	page.AddItem(bar, 1, 0, false)
 	return page

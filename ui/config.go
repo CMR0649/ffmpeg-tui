@@ -33,6 +33,10 @@ type Config struct {
 	OutputDir    string `json:"output_dir"`    // 空或 $file = 输入文件所在目录
 	OutputNaming string `json:"output_naming"` // timestamp / suffix / none
 	Suffix       string `json:"suffix"`        // 指定后缀
+
+	// 运行环境
+	FFmpegPath string `json:"ffmpeg_path"` // ffmpeg 可执行文件路径（空 = 系统 PATH）
+	Lang       string `json:"lang"`        // 界面语言：zh / en / 空 = 按环境变量
 }
 
 // DefaultConfig 返回默认配置。

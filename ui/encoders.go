@@ -2,7 +2,9 @@ package ui
 
 import (
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -41,24 +43,56 @@ func (e *EncoderInfo) HasOption(name string) bool {
 	return false
 }
 
+// ffmpegBin 返回 ffmpeg 可执行文件（配置指定或系统 PATH）。
+func ffmpegBin(cfg *Config) string {
+	if cfg != nil && cfg.FFmpegPath != "" {
+		return cfg.FFmpegPath
+	}
+	return "ffmpeg"
+}
+
+// ffprobeBin 返回 ffprobe 可执行文件：ffmpeg 路径被指定时取同目录下的
+// ffprobe（Windows 为 ffprobe.exe），否则用系统 PATH。
+func ffprobeBin(cfg *Config) string {
+	if cfg != nil && cfg.FFmpegPath != "" {
+		n := "ffprobe"
+		if runtime.GOOS == "windows" {
+			n = "ffprobe.exe"
+		}
+		return filepath.Join(filepath.Dir(cfg.FFmpegPath), n)
+	}
+	if runtime.GOOS == "windows" {
+		return "ffprobe.exe"
+	}
+	return "ffprobe"
+}
+
+// resetCodecCaches 清空编码器/解码器/格式与详情缓存（ffmpeg 路径变化后重新加载）。
+func resetCodecCaches() {
+	videoEncoders, audioEncoders = nil, nil
+	videoDecoders, audioDecoders = nil, nil
+	outputFormats = nil
+	encoderInfoCache = map[string]*EncoderInfo{}
+}
+
 // loadCodecLists 加载编码器/解码器列表
-func loadCodecLists() {
+func loadCodecLists(bin string) {
 	if len(videoEncoders) > 0 || len(audioEncoders) > 0 {
 		return
 	}
-	videoEncoders, audioEncoders = codecListFromCmd("ffmpeg", "-encoders")
-	videoDecoders, audioDecoders = codecListFromCmd("ffmpeg", "-decoders")
+	videoEncoders, audioEncoders = codecListFromCmd(bin, "-encoders")
+	videoDecoders, audioDecoders = codecListFromCmd(bin, "-decoders")
 }
 
 // loadFormats 加载可作输出容器的格式列表
-func loadFormats() {
+func loadFormats(bin string) {
 	if len(outputFormats) > 0 {
 		return
 	}
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if _, err := exec.LookPath(bin); err != nil {
 		return
 	}
-	out, err := exec.Command("ffmpeg", "-formats").Output()
+	out, err := exec.Command(bin, "-formats").Output()
 	if err != nil {
 		return
 	}
@@ -132,12 +166,12 @@ func codecListFromCmd(bin string, args ...string) (video, audio []string) {
 }
 
 // probeEncoder 运行 `ffmpeg -h encoder=名称` 获取编码器详情
-func probeEncoder(name string) *EncoderInfo {
+func probeEncoder(bin, name string) *EncoderInfo {
 	if info, ok := encoderInfoCache[name]; ok {
 		return info
 	}
 	info := &EncoderInfo{Name: name}
-	if out, err := exec.Command("ffmpeg", "-h", "encoder="+name).Output(); err == nil {
+	if out, err := exec.Command(bin, "-h", "encoder="+name).Output(); err == nil {
 		parseEncoderHelp(string(out), info)
 	}
 	encoderInfoCache[name] = info

@@ -63,7 +63,7 @@ func (a *App) closeDialog() {
 		a.buildOptionDialog()
 		return
 	}
-	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
+	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
 func (a *App) buildDialogBox(title string, body tview.Primitive, width, height int, buttons ...*tview.Button) *tview.Grid {
@@ -133,12 +133,12 @@ func (a *App) buildOptionDialog() {
 		})
 	}
 	if len(d.filtered) == 0 {
-		list.AddItem("（无匹配项）", "", 0, nil)
+		list.AddItem(a.noMatchLabel(), "", 0, nil)
 	}
 	d.list = list
 
-	ok := tview.NewButton("[确定]")
-	cancel := tview.NewButton("[取消]")
+	ok := tview.NewButton("[" + a.s.OK + "]")
+	cancel := tview.NewButton("[" + a.s.Cancel + "]")
 	ok.SetSelectedFunc(func() {
 		ci := list.GetCurrentItem()
 		a.closeDialog()
@@ -166,7 +166,7 @@ func (a *App) startOptionSearch() {
 		return
 	}
 	a.searching = true
-	a.showInputDialog("搜索", d.filter, func(text string) {
+	a.showInputDialog(a.s.Search, d.filter, func(text string) {
 		a.searching = false
 		d.filter = strings.TrimSpace(text)
 		a.buildOptionDialog()
@@ -185,8 +185,8 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 		}
 	})
 
-	ok := tview.NewButton("[确定]")
-	cancel := tview.NewButton("[取消]")
+	ok := tview.NewButton("[" + a.s.OK + "]")
+	cancel := tview.NewButton("[" + a.s.Cancel + "]")
 	ok.SetSelectedFunc(func() {
 		a.closeDialog()
 		confirm(input.GetText())
@@ -208,7 +208,7 @@ func (a *App) showMessageDialog(title, text string) {
 		Foreground(tview.Styles.PrimaryTextColor).
 		Background(tview.Styles.PrimitiveBackgroundColor))
 
-	ok := tview.NewButton("[确定]")
+	ok := tview.NewButton("[" + a.s.OK + "]")
 	ok.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok}
@@ -218,10 +218,10 @@ func (a *App) showMessageDialog(title, text string) {
 // ---------- 文件页操作 ----------
 
 func (a *App) onAddFile() {
-	a.showOptionDialog("添加文件", []string{"输入路径", "选择文件"}, func(choice int) {
+	a.showOptionDialog(a.s.AddFile, []string{a.s.InputPath, a.s.PickFile}, func(choice int) {
 		switch choice {
 		case 0:
-			a.showInputDialog("输入路径", "", func(text string) {
+			a.showInputDialog(a.s.InputPath, "", func(text string) {
 				text = strings.TrimSpace(text)
 				if text != "" {
 					a.addFilePath(text)
@@ -241,7 +241,7 @@ func (a *App) pickFileFromSystem() {
 		path, err = runSystemFilePicker()
 	})
 	if err != nil {
-		a.showMessageDialog("提示", "无法调用系统文件选择器："+err.Error()+"\n请改用「输入路径」方式添加文件。")
+		a.showMessageDialog(a.s.Hint, a.filePickerFailMsg(err.Error()))
 		return
 	}
 	if path != "" {
@@ -252,11 +252,11 @@ func (a *App) pickFileFromSystem() {
 // addFilePath 把文件路径加入文件列表，并异步调用 ffprobe 读取文件信息
 func (a *App) addFilePath(path string) {
 	idx := a.filesList.GetItemCount()
-	a.filesList.AddItem(filepath.Base(path), "正在读取文件信息…", 0, nil)
+	a.filesList.AddItem(filepath.Base(path), a.s.ReadingInfo, 0, nil)
 	a.files = append(a.files, path)
 	a.tviewApp.SetFocus(a.filesList)
 	go func() {
-		info := probeFile(path)
+		info := a.probeFile(path)
 		a.tviewApp.QueueUpdateDraw(func() {
 			a.filesList.SetItemText(idx, filepath.Base(path), info)
 		})
@@ -264,14 +264,14 @@ func (a *App) addFilePath(path string) {
 }
 
 func (a *App) onSetContainer() {
-	loadFormats()
+	loadFormats(a.ffmpegBin())
 	if len(outputFormats) == 0 {
-		a.showMessageDialog("输出容器", "无法获取容器格式列表（ffmpeg -formats）。")
+		a.showMessageDialog(a.s.ContainerTitle, a.s.ContainerFailed)
 		return
 	}
 	labels := make([]string, len(outputFormats))
 	copy(labels, outputFormats)
-	a.showOptionDialog("输出容器", labels, func(i int) {
+	a.showOptionDialog(a.s.ContainerTitle, labels, func(i int) {
 		a.outputContainer = outputFormats[i]
 		a.updateFileBar()
 	})
@@ -279,7 +279,7 @@ func (a *App) onSetContainer() {
 
 // updateFileBar 刷新底部操作栏右侧的容器名显示。
 func (a *App) updateFileBar() {
-	a.fileContainerLabel.SetText(fmt.Sprintf("输出容器：%s", a.outputContainer))
+	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
 }
 
 // ---------- 系统文件选择器 ----------
@@ -324,14 +324,11 @@ func runSystemFilePicker() (string, error) {
 
 // probeFile 调用 ffprobe（Windows 为 ffprobe.exe）读取媒体文件信息，
 // 返回一行格式化摘要；ffprobe 不可用或解析失败时返回相应提示。
-func probeFile(path string) string {
-	name := "ffprobe"
-	if runtime.GOOS == "windows" {
-		name = "ffprobe.exe"
-	}
+func (a *App) probeFile(path string) string {
+	name := a.ffprobeBin()
 	exe, err := exec.LookPath(name)
 	if err != nil {
-		return "未找到 " + name + "，无法读取文件信息"
+		return fmt.Sprintf(a.s.NoFFprobe, name)
 	}
 	out, err := exec.Command(exe,
 		"-v", "error",
@@ -341,14 +338,29 @@ func probeFile(path string) string {
 		path,
 	).Output()
 	if err != nil {
-		return "无法读取文件信息：" + err.Error()
+		return fmt.Sprintf(a.s.ReadInfoFailed, err.Error())
 	}
-	return formatProbeInfo(string(out))
+	return a.formatProbeInfo(string(out))
+}
+
+// ffprobeBin 返回 ffprobe 可执行文件（跟随 FFmpeg 路径设置）。
+func (a *App) ffprobeBin() string {
+	return ffprobeBin(a.cfg)
+}
+
+// ffmpegBin 返回 ffmpeg 可执行文件（跟随 FFmpeg 路径设置）。
+func (a *App) ffmpegBin() string {
+	return ffmpegBin(a.cfg)
+}
+
+// parseFailedText 返回文件信息解析失败的提示。
+func (a *App) parseFailedText() string {
+	return a.s.ParseInfoFailed
 }
 
 // formatProbeInfo 解析 ffprobe 的 key=value 输出（含 [STREAM]/[FORMAT] 段落），
 // 生成如 "H.264 · 1920×1080 · 29.97 fps · AAC 48000Hz · 2ch · 00:12:08 · 1.2 GB" 的摘要。
-func formatProbeInfo(raw string) string {
+func (a *App) formatProbeInfo(raw string) string {
 	var format map[string]string
 	var streams []map[string]string
 	var cur map[string]string
@@ -422,7 +434,7 @@ func formatProbeInfo(raw string) string {
 		parts = append(parts, formatSize(size))
 	}
 	if len(parts) == 0 {
-		return "未能解析文件信息"
+		return a.parseFailedText()
 	}
 	return strings.Join(parts, " · ")
 }
@@ -498,4 +510,68 @@ func formatSize(bytes int64) string {
 	default:
 		return fmt.Sprintf("%d KB", bytes/1024)
 	}
+}
+
+// showAboutDialog 显示关于弹窗：FFmpeg-TUI / 版本 / by CMR0649 /
+// GitHub 链接（蓝色，点击或选中确认后打开项目主页）。
+func (a *App) showAboutDialog() {
+	tv := tview.NewTextView()
+	tv.SetDynamicColors(true)
+	tv.SetTextAlign(tview.AlignCenter)
+	tv.SetText(a.s.AboutLine1 + "\n\n" +
+		"[yellow]" + fmt.Sprintf(a.s.AboutLine2, Version) + "[-]\n\n" +
+		a.s.AboutLine3 + "\n\n")
+	tv.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	tv.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+
+	github := tview.NewButton("[" + a.s.AboutGitHub + "]")
+	github.SetStyle(tcell.StyleDefault.
+		Background(tview.Styles.PrimitiveBackgroundColor).
+		Foreground(tcell.ColorBlue))
+	github.SetActivatedStyle(tcell.StyleDefault.
+		Background(tcell.ColorBlue).
+		Foreground(tcell.ColorWhite))
+	github.SetSelectedFunc(func() {
+		a.closeDialog()
+		_ = openURL("https://github.com/CMR0649/ffmpeg-tui")
+	})
+
+	ok := tview.NewButton("[" + a.s.OK + "]")
+	ok.SetSelectedFunc(func() { a.closeDialog() })
+
+	a.dialogButtons = []tview.Primitive{github, ok}
+	a.showDialog(a.buildDialogBox(a.s.AboutTitle, tv, 50, 12, github, ok),
+		[]tview.Primitive{tv, github, ok}, github)
+}
+
+// openURL 用系统默认方式打开链接。
+func openURL(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
+}
+
+// noMatchLabel 「无匹配项」按当前语言。
+func (a *App) noMatchLabel() string {
+	if a.lang == "en" {
+		return "(no match)"
+	}
+	return "（无匹配项）"
+}
+
+// filePickerFailMsg 系统文件选择器不可用时的提示。
+func (a *App) filePickerFailMsg(err string) string {
+	if a.lang == "en" {
+		return "Cannot open system file picker: " + err + "\nPlease use \"Enter path\" instead."
+	}
+	return "无法调用系统文件选择器：" + err + "\n请改用「输入路径」方式添加文件。"
 }

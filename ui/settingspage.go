@@ -1,42 +1,45 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/rivo/tview"
 )
 
-// outputNamingOptions 输出选项（单选）。
-var outputNamingOptions = []string{
-	"添加时间（默认）",
-	"添加指定后缀",
-	"不添加后缀",
+// outputNamingOptions 输出选项（单选）——按当前语言生成。
+func (a *App) outputNamingOptions() []string {
+	return []string{a.s.NamingTimestamp, a.s.NamingSuffix, a.s.NamingNone}
 }
 
-// buildSettingsPage 构建「设置」页：输出选项 / 导出配置 / 加载配置 / 指定默认配置。
+// buildSettingsPage 构建「设置」页：输出选项 / FFmpeg 路径 / 语言 /
+// 配置管理 / 关于（最后一个选项）。
 func (a *App) buildSettingsPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
-	list.SetTitle(" 设置 ")
+	list.SetTitle(a.s.SettingsTitle)
 	a.settingsList = list
 	a.refreshSettingsPage()
 	return list
 }
 
-// refreshSettingsPage 按当前配置重建设置页选项列表。
+// refreshSettingsPage 按当前配置与语言重建设置页选项列表。
 func (a *App) refreshSettingsPage() {
 	l := a.settingsList
 	l.Clear()
-	l.AddItem("输出选项", a.outputNamingLabel(), 0, func() { a.editOutputNaming() })
-	l.AddItem("指定后缀", a.suffixLabel(), 0, func() { a.editSuffix() })
-	l.AddItem("导出配置", "导出当前配置为 JSON 文件", 0, func() { a.exportConfig() })
-	l.AddItem("默认配置", "从 JSON 文件加载配置", 0, func() { a.loadConfig() })
-	l.AddItem("默认配置", "保存当前配置为启动时加载的默认配置", 0, func() { a.saveAsDefault() })
+	l.AddItem(a.s.OutputOption, a.outputNamingLabel(), 0, func() { a.editOutputNaming() })
+	l.AddItem(a.s.Suffix, a.suffixLabel(), 0, func() { a.editSuffix() })
+	l.AddItem(a.s.FFmpegPath, a.ffmpegPathLabel(), 0, func() { a.editFFmpegPath() })
+	l.AddItem(a.s.Language, a.languageLabel(), 0, func() { a.editLanguage() })
+	l.AddItem(a.s.ExportCfg, "JSON", 0, func() { a.exportConfig() })
+	l.AddItem(a.s.LoadCfg, "JSON", 0, func() { a.loadConfig() })
+	l.AddItem(a.s.SetDefaultCfg, "", 0, func() { a.saveAsDefault() })
+	l.AddItem(a.s.About, "", 0, func() { a.showAboutDialog() }) // 最后一个选项
 }
 
 // editOutputNaming 输出选项（添加时间 / 指定后缀 / 不添加后缀）。
 func (a *App) editOutputNaming() {
-	a.showOptionDialog("输出选项", outputNamingOptions, func(i int) {
+	a.showOptionDialog(a.s.OutputOption, a.outputNamingOptions(), func(i int) {
 		switch i {
 		case 0:
 			a.cfg.OutputNaming = "timestamp"
@@ -56,11 +59,11 @@ func (a *App) editOutputNaming() {
 func (a *App) outputNamingLabel() string {
 	switch a.cfg.OutputNaming {
 	case "suffix":
-		return "添加指定后缀：" + a.cfg.Suffix
+		return strings.Replace(a.s.NamingSuffix, "%s", a.cfg.Suffix, 1)
 	case "none":
-		return "不添加后缀"
+		return a.s.NamingNone
 	default:
-		return "添加时间"
+		return a.s.NamingTimestamp
 	}
 }
 
@@ -71,7 +74,7 @@ func (a *App) editSuffix() {
 
 // promptSuffix 弹出后缀输入对话框。
 func (a *App) promptSuffix() {
-	a.showInputDialog("指定后缀", a.cfg.Suffix, func(text string) {
+	a.showInputDialog(a.s.Suffix, a.cfg.Suffix, func(text string) {
 		a.cfg.Suffix = strings.TrimSpace(text)
 		a.refreshSettingsPage()
 	})
@@ -85,42 +88,93 @@ func (a *App) suffixLabel() string {
 	return a.cfg.Suffix
 }
 
+// editFFmpegPath 指定 FFmpeg 可执行文件路径（留空 = 系统 PATH）。
+func (a *App) editFFmpegPath() {
+	a.showInputDialog(a.s.FFmpegPath, a.cfg.FFmpegPath, func(text string) {
+		a.cfg.FFmpegPath = strings.TrimSpace(text)
+		// 路径变化：清空编码器/格式缓存并按新路径重新加载。
+		resetCodecCaches()
+		loadCodecLists(a.ffmpegBin())
+		loadFormats(a.ffmpegBin())
+		a.refreshSettingsPage()
+	})
+}
+
+// ffmpegPathLabel FFmpeg 路径项的当前值显示。
+func (a *App) ffmpegPathLabel() string {
+	if a.cfg.FFmpegPath == "" {
+		return a.s.FFmpegPathDefault
+	}
+	return a.cfg.FFmpegPath
+}
+
+// editLanguage 切换界面语言（中文 / English）。
+func (a *App) editLanguage() {
+	a.showOptionDialog(a.s.Language, []string{a.s.LangZh, a.s.LangEn}, func(i int) {
+		if i == 0 {
+			a.setLanguage("zh")
+		} else {
+			a.setLanguage("en")
+		}
+	})
+}
+
+// languageLabel 语言项的当前值显示。
+func (a *App) languageLabel() string {
+	return langStrings(a.lang).LangZh + " / " + langStrings(a.lang).LangEn
+}
+
+// setLanguage 切换语言并刷新所有界面文本。
+func (a *App) setLanguage(lang string) {
+	a.cfg.Lang = lang
+	a.lang = lang
+	a.s = langStrings(lang)
+	a.refreshAllPages()
+	a.renderTabBar()
+	a.renderFooter()
+}
+
 // exportConfig 导出当前配置为 JSON 文件。
 func (a *App) exportConfig() {
-	a.showInputDialog("导出配置（JSON 文件路径）", "", func(path string) {
+	a.showInputDialog(a.s.ExportCfg, "", func(path string) {
 		path = strings.TrimSpace(path)
 		if path == "" {
 			return
 		}
 		if err := a.cfg.SaveJSON(path); err != nil {
-			a.showMessageDialog("导出失败", "无法保存配置文件：\n"+err.Error())
+			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SaveCfgFailed, err.Error()))
 			return
 		}
-		a.showMessageDialog("导出成功", "配置已导出到：\n"+path)
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.Exported, path))
 	})
 }
 
 // loadConfig 从 JSON 文件加载配置。
 func (a *App) loadConfig() {
-	a.showInputDialog("加载配置（JSON 文件路径）", "", func(path string) {
+	a.showInputDialog(a.s.LoadCfg, "", func(path string) {
 		path = strings.TrimSpace(path)
 		if path == "" {
 			return
 		}
 		if err := a.cfg.LoadJSON(path); err != nil {
-			a.showMessageDialog("加载失败", "无法加载配置文件：\n"+err.Error())
+			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadCfgFailed, err.Error()))
 			return
 		}
+		// 配置可能包含语言设置，重新应用语言。
+		a.lang = effectiveLang(a.cfg.Lang)
+		a.s = langStrings(a.lang)
 		a.refreshAllPages()
-		a.showMessageDialog("加载成功", "已加载配置：\n"+path)
+		a.renderTabBar()
+		a.renderFooter()
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.Loaded, path))
 	})
 }
 
 // saveAsDefault 把当前配置保存为默认配置（启动时自动加载）。
 func (a *App) saveAsDefault() {
 	if err := a.cfg.SaveJSON(defaultConfigPath()); err != nil {
-		a.showMessageDialog("保存失败", "无法保存默认配置：\n"+err.Error())
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SaveDefaultFailed, err.Error()))
 		return
 	}
-	a.showMessageDialog("已保存", "当前配置已保存为默认配置：\n"+defaultConfigPath())
+	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SavedDefault, defaultConfigPath()))
 }

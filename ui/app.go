@@ -13,8 +13,13 @@ import (
 // Version 是当前版本号。
 const Version = "beta1.1"
 
-// tabNames 定义顶部标签页（顺序即显示顺序）。
-var tabNames = []string{"文件", "视频", "音频", "任务", "设置"}
+// tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）。
+var tabKeys = []string{"files", "video", "audio", "tasks", "settings"}
+
+// tabNames 按当前语言返回标签页显示名。
+func (a *App) tabNames() []string {
+	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabSettings}
+}
 
 // App 组装整个 TUI 界面。
 type App struct {
@@ -43,6 +48,8 @@ type App struct {
 
 	// 配置与各选项页
 	cfg          *Config
+	lang         string // 当前语言：zh / en
+	s            *Strings
 	videoList    *tview.List
 	audioList    *tview.List
 	settingsList *tview.List
@@ -72,24 +79,26 @@ func NewApp() *App {
 		cfg:             DefaultConfig(),
 	}
 
-	// 加载编码器/解码器列表
-	loadCodecLists()
-
 	// 加载默认配置（若存在，来自「指定默认配置」）。
 	if p := defaultConfigPath(); fileExists(p) {
 		_ = a.cfg.LoadJSON(p)
 	}
 
-	// 标签页内容。
+	// 语言：配置显式设置优先，否则按环境变量。
+	a.lang = effectiveLang(a.cfg.Lang)
+	a.s = langStrings(a.lang)
+
+	// 编码器/解码器列表（用配置指定的 ffmpeg 路径）。
+	loadCodecLists(a.ffmpegBin())
 	a.pages = tview.NewPages()
-	for i, name := range tabNames {
+	for i, key := range tabKeys {
 		var content tview.Primitive
 		if i == 0 {
 			content = a.buildFilesPage() // 文件页（含输出目录与底部操作栏）
 		} else {
 			content = a.buildPage(i)
 		}
-		a.pages.AddPage(name, content, true, i == 0)
+		a.pages.AddPage(key, content, true, i == 0)
 	}
 
 	// 文本区显式样式：白字黑底。
@@ -183,7 +192,7 @@ func (a *App) renderTabBar() {
 	var sb strings.Builder
 	x := 0
 	a.tabRanges = a.tabRanges[:0]
-	for i, name := range tabNames {
+	for i, name := range a.tabNames() {
 		// 转义方括号，避免被当作颜色标签（中文标签名不会命中，转义仅为稳妥）。
 		label := tview.Escape("[" + name + "]")
 		width := runewidth.StringWidth(label)
@@ -251,23 +260,23 @@ func (a *App) moveHorizontalFocus(left bool) bool {
 
 // switchTab 切换到第 i 个标签（越界自动循环）。
 func (a *App) switchTab(i int) {
-	n := len(tabNames)
+	n := len(tabKeys)
 	if n == 0 {
 		return
 	}
 	a.current = ((i % n) + n) % n
-	a.pages.SwitchToPage(tabNames[a.current])
+	a.pages.SwitchToPage(tabKeys[a.current])
 	a.renderTabBar()
 	a.renderFooter()
-	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
+	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
-// renderFooter 刷新底部按键提示：Delete：移除 仅在文件页显示。
+// renderFooter 刷新底部按键提示：Delete 提示仅在文件页显示。
 func (a *App) renderFooter() {
 	if a.current == 0 {
-		a.footer.SetText(" A/D：切换    方向键：选择    Delete：移除 ")
+		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + "    " + a.s.FooterDelete + " ")
 	} else {
-		a.footer.SetText(" A/D：切换    方向键：选择 ")
+		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + " ")
 	}
 }
 

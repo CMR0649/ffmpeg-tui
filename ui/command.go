@@ -26,27 +26,27 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 			if a.cfg.VideoPreset != "" {
 				args = append(args, "-preset", a.cfg.VideoPreset)
 			}
-			switch a.cfg.QualityMode {
-			case "恒定质量 CRF":
+			switch qualityModeKey(a.cfg.QualityMode) {
+			case "crf":
 				if a.cfg.QualityValue != "" {
 					args = append(args, "-crf", a.cfg.QualityValue)
 				}
-			case "可变码率 VBR":
+			case "vbr":
 				if a.cfg.QualityValue != "" {
 					args = append(args, "-q:v", a.cfg.QualityValue)
 				}
-			case "固定码率 CBR":
+			case "cbr":
 				if b := a.cfg.VideoBitrate; b != "" {
 					args = append(args, "-b:v", b+"k", "-minrate", b+"k", "-maxrate", b+"k", "-bufsize", cbrBufsize(b)+"k")
 				}
 			}
-			if a.cfg.VideoBitrate != "" && a.cfg.QualityMode != "固定码率 CBR" {
+			if a.cfg.VideoBitrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
 				args = append(args, "-b:v", a.cfg.VideoBitrate+"k")
 			}
-			if a.cfg.VideoMaxrate != "" && a.cfg.QualityMode != "固定码率 CBR" {
+			if a.cfg.VideoMaxrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
 				args = append(args, "-maxrate", a.cfg.VideoMaxrate+"k")
 			}
-			if a.cfg.VideoMinrate != "" && a.cfg.QualityMode != "固定码率 CBR" {
+			if a.cfg.VideoMinrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
 				args = append(args, "-minrate", a.cfg.VideoMinrate+"k")
 			}
 			if a.cfg.VideoWidth != "" && a.cfg.VideoHeight != "" {
@@ -124,4 +124,17 @@ func (a *App) outputPath(input string) string {
 		}
 	}
 	return filepath.Join(dir, name)
+}
+
+// qualityModeKey 归一化控制方式：兼容新键（crf/vbr/cbr）与旧配置的中文值。
+func qualityModeKey(mode string) string {
+	switch mode {
+	case "crf", "恒定质量 CRF":
+		return "crf"
+	case "vbr", "可变码率 VBR":
+		return "vbr"
+	case "cbr", "固定码率 CBR":
+		return "cbr"
+	}
+	return "crf"
 }

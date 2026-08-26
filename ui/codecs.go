@@ -13,7 +13,7 @@ var qualityModes = []string{"恒定质量 CRF", "可变码率 VBR", "固定码�
 var videoDecoderNames = []string{"自动选择", "h264", "hevc", "mpeg4", "mpeg2video", "vp8", "vp9", "av1"}
 
 // sampleRates 采样率选项（Hz）。
-var sampleRates = []string{"原始", "8000", "11025", "16000", "22050", "32000", "44100", "48000", "88200", "96000", "192000"}
+var sampleRates = []string{"8000", "11025", "16000", "22050", "32000", "44100", "48000", "88200", "96000", "192000"}
 
 // bitDepths 位深度选项（WAV/PCM 编码器，名称与编码器同步）。
 var bitDepths = []struct {

@@ -8,33 +8,33 @@ import (
 )
 
 // buildAudioPage 构建「音频」页：编码器 / 比特率 / 采样率 / 位深度。
-// 编码器列表从 ffmpeg-encoders.txt（或 ffmpeg 命令）动态加载。
+// 编码器列表从 ffmpeg 命令动态加载。
 func (a *App) buildAudioPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
-	list.SetTitle(" 音频 — 编码选项 ")
+	list.SetTitle(a.s.AudioTitle)
 	a.audioList = list
 	a.refreshAudioPage()
 	return list
 }
 
-// refreshAudioPage 按当前配置重建音频页选项列表。
+// refreshAudioPage 按当前配置与语言重建音频页选项列表。
 func (a *App) refreshAudioPage() {
 	l := a.audioList
 	l.Clear()
-	l.AddItem("编码器", a.audioEncoderLabel(), 0, func() { a.editAudioEncoder() })
-	l.AddItem("比特率", a.audioBitrateLabel(), 0, func() { a.editAudioBitrate() })
-	l.AddItem("采样率", a.sampleRateLabel(), 0, func() { a.editSampleRate() })
-	l.AddItem("位深度", a.bitDepthLabel(), 0, func() { a.editBitDepth() })
+	l.AddItem(a.s.AudioEncoder, a.audioEncoderLabel(), 0, func() { a.editAudioEncoder() })
+	l.AddItem(a.s.AudioBitrate, a.audioBitrateLabel(), 0, func() { a.editAudioBitrate() })
+	l.AddItem(a.s.SampleRate, a.sampleRateLabel(), 0, func() { a.editSampleRate() })
+	l.AddItem(a.s.BitDepth, a.bitDepthLabel(), 0, func() { a.editBitDepth() })
 }
 
 // editAudioEncoder 编码器（默认复制流），列表动态加载。
 func (a *App) editAudioEncoder() {
-	loadCodecLists()
+	loadCodecLists(a.ffmpegBin())
 	labels := make([]string, 0, len(audioEncoders)+1)
-	labels = append(labels, "复制流（默认）")
+	labels = append(labels, a.copyStreamLabel())
 	labels = append(labels, audioEncoders...)
-	a.showOptionDialog("编码器（默认复制流）", labels, func(i int) {
+	a.showOptionDialog(a.s.AudioEncoder, labels, func(i int) {
 		if i == 0 {
 			a.cfg.AudioEncoder = ""
 			a.refreshAudioPage()
@@ -51,7 +51,7 @@ func (a *App) editAudioEncoder() {
 // audioEncoderLabel 编码器项的当前值显示。
 func (a *App) audioEncoderLabel() string {
 	if a.cfg.AudioEncoder == "" {
-		return "复制流（默认）"
+		return a.copyStreamLabel()
 	}
 	if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") && a.cfg.BitDepth != "" {
 		return a.cfg.AudioEncoder + "（WAV " + a.cfg.BitDepth + "-bit）"
@@ -66,7 +66,7 @@ func (a *App) audioIsWav() bool {
 
 // editAudioBitrate 比特率输入（kbps）。
 func (a *App) editAudioBitrate() {
-	a.showInputDialog("比特率（kbps）", a.cfg.AudioBitrate, func(text string) {
+	a.showInputDialog(a.s.AudioBitrate+"（kbps）", a.cfg.AudioBitrate, func(text string) {
 		a.cfg.AudioBitrate = strings.TrimSpace(text)
 		a.refreshAudioPage()
 	})
@@ -82,11 +82,14 @@ func (a *App) audioBitrateLabel() string {
 
 // editSampleRate 采样率选择。
 func (a *App) editSampleRate() {
-	a.showOptionDialog("采样率", sampleRates, func(i int) {
-		if sampleRates[i] == "原始" {
+	labels := make([]string, 0, len(sampleRates)+1)
+	labels = append(labels, a.originalLabel())
+	labels = append(labels, sampleRates...)
+	a.showOptionDialog(a.s.SampleRate, labels, func(i int) {
+		if i == 0 {
 			a.cfg.SampleRate = ""
 		} else {
-			a.cfg.SampleRate = sampleRates[i]
+			a.cfg.SampleRate = sampleRates[i-1]
 		}
 		a.refreshAudioPage()
 	})
@@ -95,7 +98,7 @@ func (a *App) editSampleRate() {
 // sampleRateLabel 采样率项的当前值显示。
 func (a *App) sampleRateLabel() string {
 	if a.cfg.SampleRate == "" {
-		return "原始"
+		return a.originalLabel()
 	}
 	return a.cfg.SampleRate + " Hz"
 }
@@ -108,7 +111,7 @@ func (a *App) editBitDepth() {
 	for i, b := range bitDepths {
 		labels[i] = b.Label
 	}
-	a.showOptionDialog("位深度", labels, func(i int) {
+	a.showOptionDialog(a.s.BitDepth, labels, func(i int) {
 		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i].Label, "-bit")
 		if a.audioIsWav() {
 			a.cfg.AudioEncoder = bitDepths[i].Name // WAV/PCM：与编码器名称同步
@@ -120,7 +123,7 @@ func (a *App) editBitDepth() {
 // bitDepthLabel 位深度项的当前值显示。
 func (a *App) bitDepthLabel() string {
 	if a.cfg.BitDepth == "" {
-		return "未设置"
+		return a.s.BitDepthNotSet
 	}
 	return fmt.Sprintf("%s-bit", a.cfg.BitDepth)
 }
