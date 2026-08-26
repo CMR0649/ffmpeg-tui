@@ -24,15 +24,11 @@ func buildPage(index int) tview.Primitive {
 
 // buildFilesPage 构建「文件」页：
 //
-//	文件列表 + 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
+//	文件列表（初始为空）+ 底部操作栏（[添加文件] [设置输出容器] …… 输出容器：xxx）。
 //
 // 底部操作栏位于页面边框之内、按键说明之上。
 func (a *App) buildFilesPage() tview.Primitive {
 	a.filesList = tview.NewList()
-	a.filesList.AddItem("sample.mp4", "H.264 · 720p · 00:03:24 · 48.2 MB", 0, nil)
-	a.filesList.AddItem("video.mkv", "HEVC · 1080p · 00:12:08 · 1.2 GB", 0, nil)
-	a.filesList.AddItem("clip.avi", "MPEG-4 · 480p · 00:00:45 · 21.5 MB", 0, nil)
-	a.filesList.AddItem("record.wav", "PCM 16bit · 44.1kHz · 00:01:30 · 15.2 MB", 0, nil)
 
 	// 底部操作栏：[添加文件] [设置输出容器] …… 输出容器：xxx
 	addBtn := tview.NewButton("[添加文件]")
@@ -42,6 +38,8 @@ func (a *App) buildFilesPage() tview.Primitive {
 
 	// 文件页 Tab 焦点循环：文件列表 → [添加文件] → [设置输出容器]
 	a.fileBarFocusables = []tview.Primitive{a.filesList, addBtn, setBtn}
+	// 底部横向按钮组（左右方向键切换）
+	a.fileBarButtons = []tview.Primitive{addBtn, setBtn}
 
 	a.fileContainerLabel = tview.NewTextView()
 	a.fileContainerLabel.SetTextAlign(tview.AlignRight)

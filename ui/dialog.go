@@ -3,9 +3,11 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -121,6 +123,7 @@ func (a *App) showOptionDialog(title string, options []string, confirm func(int)
 	if height < 8 {
 		height = 8
 	}
+	a.dialogButtons = []tview.Primitive{ok, cancel}
 	a.showDialog(a.buildDialogBox(title, list, 36, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
 }
 
@@ -144,6 +147,7 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
+	a.dialogButtons = []tview.Primitive{ok, cancel}
 	a.showDialog(a.buildDialogBox(title, input, 50, 8, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
 }
 
@@ -161,6 +165,7 @@ func (a *App) showMessageDialog(title, text string) {
 	ok := tview.NewButton("[确定]")
 	ok.SetSelectedFunc(func() { a.closeDialog() })
 
+	a.dialogButtons = []tview.Primitive{ok}
 	a.showDialog(a.buildDialogBox(title, tv, 60, 8, ok), []tview.Primitive{ok}, ok)
 }
 
@@ -199,10 +204,18 @@ func (a *App) pickFileFromSystem() {
 	}
 }
 
-// addFilePath 把文件路径加入文件列表。
+// addFilePath 把文件路径加入文件列表，并异步调用 ffprobe 读取文件信息
+// 作为列表项副文本显示。
 func (a *App) addFilePath(path string) {
-	a.filesList.AddItem(filepath.Base(path), path, 0, nil)
+	idx := a.filesList.GetItemCount()
+	a.filesList.AddItem(filepath.Base(path), "正在读取文件信息…", 0, nil)
 	a.tviewApp.SetFocus(a.filesList)
+	go func() {
+		info := probeFile(path)
+		a.tviewApp.QueueUpdateDraw(func() {
+			a.filesList.SetItemText(idx, filepath.Base(path), info)
+		})
+	}()
 }
 
 // onSetContainer 处理「设置输出容器」。
@@ -255,4 +268,184 @@ func runSystemFilePicker() (string, error) {
 		return "", nil
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// ---------- ffprobe 文件信息 ----------
+
+// probeFile 调用 ffprobe（Windows 为 ffprobe.exe）读取媒体文件信息，
+// 返回一行格式化摘要；ffprobe 不可用或解析失败时返回相应提示。
+func probeFile(path string) string {
+	name := "ffprobe"
+	if runtime.GOOS == "windows" {
+		name = "ffprobe.exe"
+	}
+	exe, err := exec.LookPath(name)
+	if err != nil {
+		return "未找到 " + name + "，无法读取文件信息"
+	}
+	out, err := exec.Command(exe,
+		"-v", "error",
+		"-show_entries", "format=duration,size,format_name",
+		"-show_entries", "stream=codec_name,codec_type,width,height,avg_frame_rate,sample_rate,channels",
+		"-of", "default",
+		path,
+	).Output()
+	if err != nil {
+		return "无法读取文件信息：" + err.Error()
+	}
+	return formatProbeInfo(string(out))
+}
+
+// formatProbeInfo 解析 ffprobe 的 key=value 输出（含 [STREAM]/[FORMAT] 段落），
+// 生成如 "H.264 · 1920×1080 · 29.97 fps · AAC 48000Hz · 2ch · 00:12:08 · 1.2 GB" 的摘要。
+func formatProbeInfo(raw string) string {
+	var format map[string]string
+	var streams []map[string]string
+	var cur map[string]string
+	inStream := false
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		switch line {
+		case "[STREAM]":
+			inStream = true
+			cur = map[string]string{}
+		case "[/STREAM]":
+			inStream = false
+			streams = append(streams, cur)
+			cur = nil
+		case "[FORMAT]":
+			inStream = false
+			format = map[string]string{}
+		case "[/FORMAT]":
+			inStream = false
+		default:
+			if inStream && cur != nil {
+				if i := strings.Index(line, "="); i > 0 {
+					cur[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
+				}
+			} else if format != nil {
+				if i := strings.Index(line, "="); i > 0 {
+					format[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
+				}
+			}
+		}
+	}
+
+	var video, audio map[string]string
+	for _, s := range streams {
+		switch s["codec_type"] {
+		case "video":
+			if video == nil {
+				video = s
+			}
+		case "audio":
+			if audio == nil {
+				audio = s
+			}
+		}
+	}
+
+	var parts []string
+	if video != nil {
+		parts = append(parts, strings.ToUpper(video["codec_name"]))
+		if video["width"] != "" && video["height"] != "" {
+			parts = append(parts, video["width"]+"×"+video["height"])
+		}
+		if fps := parseFPS(video["avg_frame_rate"]); fps > 0 {
+			parts = append(parts, formatFPS(fps))
+		}
+	}
+	if audio != nil {
+		p := strings.ToUpper(audio["codec_name"])
+		if audio["sample_rate"] != "" && audio["sample_rate"] != "0" {
+			p += " " + audio["sample_rate"] + "Hz"
+		}
+		if audio["channels"] != "" && audio["channels"] != "0" {
+			p += " · " + audio["channels"] + "ch"
+		}
+		parts = append(parts, p)
+	}
+	if dur := parseDuration(format["duration"]); dur > 0 {
+		parts = append(parts, formatDuration(dur))
+	}
+	if size := parseSize(format["size"]); size > 0 {
+		parts = append(parts, formatSize(size))
+	}
+	if len(parts) == 0 {
+		return "未能解析文件信息"
+	}
+	return strings.Join(parts, " · ")
+}
+
+// formatFPS 格式化帧率：整数显示为 "25 fps"，否则保留两位小数（如 "29.97 fps"）。
+func formatFPS(fps float64) string {
+	if fps == math.Trunc(fps) {
+		return fmt.Sprintf("%.0f fps", fps)
+	}
+	return fmt.Sprintf("%.2f fps", fps)
+}
+
+// parseFPS 解析 ffprobe 的帧率（如 "30000/1001" 或 "30"），无法解析时返回 0。
+func parseFPS(rate string) float64 {
+	if rate == "" || rate == "0/0" || rate == "N/A" {
+		return 0
+	}
+	if p := strings.Split(rate, "/"); len(p) == 2 {
+		n, err1 := strconv.ParseFloat(p[0], 64)
+		d, err2 := strconv.ParseFloat(p[1], 64)
+		if err1 == nil && err2 == nil && d > 0 {
+			return n / d
+		}
+	}
+	f, err := strconv.ParseFloat(rate, 64)
+	if err != nil || f <= 0 {
+		return 0
+	}
+	return f
+}
+
+// parseDuration 解析时长（秒），无效时返回 0。
+func parseDuration(d string) float64 {
+	f, err := strconv.ParseFloat(d, 64)
+	if err != nil || f <= 0 {
+		return 0
+	}
+	return f
+}
+
+// formatDuration 把秒数格式化为 00:12:08 / 00:45。
+func formatDuration(seconds float64) string {
+	s := int(seconds)
+	h := s / 3600
+	m := (s % 3600) / 60
+	sec := s % 60
+	if h > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, sec)
+	}
+	return fmt.Sprintf("%02d:%02d", m, sec)
+}
+
+// parseSize 解析文件大小（字节），无效时返回 0。
+func parseSize(size string) int64 {
+	n, err := strconv.ParseInt(size, 10, 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
+}
+
+// formatSize 把字节数格式化为 MB / GB。
+func formatSize(bytes int64) string {
+	const (
+		mb = 1 << 20
+		gb = 1 << 30
+	)
+	switch {
+	case bytes >= gb:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(gb))
+	case bytes >= mb:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mb))
+	default:
+		return fmt.Sprintf("%d KB", bytes/1024)
+	}
 }

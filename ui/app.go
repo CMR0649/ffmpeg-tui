@@ -10,8 +10,8 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Version 是当前演示版本号。
-const Version = "beta0.1"
+// Version 是当前版本号。
+const Version = "beta0.2"
 
 // tabNames 定义顶部标签页（顺序即显示顺序）。
 var tabNames = []string{"文件", "视频", "音频", "任务", "设置"}
@@ -30,11 +30,13 @@ type App struct {
 	fileContainerLabel *tview.TextView
 	outputContainer    string
 	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 添加文件 / 设置输出容器
+	fileBarButtons     []tview.Primitive // 文件页底部横向按钮组：[添加文件] [设置输出容器]（左右键切换）
 
 	// 对话框状态
 	dialogOpen       bool
 	dialogFocusables []tview.Primitive // 对话框内可聚焦组件（Tab 循环）
 	dialogFocusIndex int
+	dialogButtons    []tview.Primitive // 对话框内横向按钮组：[确定] [取消]（左右键切换）
 }
 
 // NewApp 创建并初始化应用。
@@ -92,7 +94,7 @@ func NewApp() *App {
 
 	footer := tview.NewTextView()
 	footer.SetTextAlign(tview.AlignCenter)
-	footer.SetText(" A/D：切换    方向键：选择 ")
+	footer.SetText(" A/D：切换    方向键：选择    Delete：移除 ")
 	footer.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	footer.SetTextStyle(textStyle)
 
@@ -177,6 +179,39 @@ func (a *App) fileBarCurrentIndex() int {
 	return 0
 }
 
+// moveHorizontalFocus 处理左/右方向键：当焦点位于横向排列的按钮组
+// （文件页底部 [添加文件] [设置输出容器]，或对话框 [确定] [取消]）时，
+// 在同组按钮间循环切换焦点。返回 true 表示事件已消费。
+func (a *App) moveHorizontalFocus(left bool) bool {
+	var group []tview.Primitive
+	if a.dialogOpen {
+		group = a.dialogButtons
+	} else if a.current == 0 {
+		group = a.fileBarButtons
+	}
+	if len(group) == 0 {
+		return false
+	}
+	cur := a.tviewApp.GetFocus()
+	idx := -1
+	for i, p := range group {
+		if p == cur {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return false // 焦点不在按钮组中（如列表），左右键放行给组件
+	}
+	if left {
+		idx = (idx - 1 + len(group)) % len(group)
+	} else {
+		idx = (idx + 1) % len(group)
+	}
+	a.tviewApp.SetFocus(group[idx])
+	return true
+}
+
 // switchTab 切换到第 i 个标签（越界自动循环）。
 func (a *App) switchTab(i int) {
 	n := len(tabNames)
@@ -213,6 +248,17 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		}
 		if a.current == 0 { // 文件页：Shift-Tab 反向循环
 			a.fileBarFocusPrev()
+			return nil
+		}
+	case tcell.KeyLeft, tcell.KeyRight:
+		// 左右方向键在横向排列的按钮组（文件页底部 / 对话框 [确定][取消]）间切换焦点。
+		if a.moveHorizontalFocus(event.Key() == tcell.KeyLeft) {
+			return nil
+		}
+	case tcell.KeyDelete:
+		// 文件界面：Delete 移除当前选中的文件。
+		if !a.dialogOpen && a.current == 0 && a.filesList != nil && a.filesList.GetItemCount() > 0 {
+			a.filesList.RemoveItem(a.filesList.GetCurrentItem())
 			return nil
 		}
 	case tcell.KeyEscape:
