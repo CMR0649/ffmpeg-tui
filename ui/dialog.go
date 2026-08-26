@@ -137,8 +137,8 @@ func (a *App) buildOptionDialog() {
 	}
 	d.list = list
 
-	ok := tview.NewButton("[" + a.s.OK + "]")
-	cancel := tview.NewButton("[" + a.s.Cancel + "]")
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
 	ok.SetSelectedFunc(func() {
 		ci := list.GetCurrentItem()
 		a.closeDialog()
@@ -185,8 +185,8 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 		}
 	})
 
-	ok := tview.NewButton("[" + a.s.OK + "]")
-	cancel := tview.NewButton("[" + a.s.Cancel + "]")
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
 	ok.SetSelectedFunc(func() {
 		a.closeDialog()
 		confirm(input.GetText())
@@ -208,7 +208,7 @@ func (a *App) showMessageDialog(title, text string) {
 		Foreground(tview.Styles.PrimaryTextColor).
 		Background(tview.Styles.PrimitiveBackgroundColor))
 
-	ok := tview.NewButton("[" + a.s.OK + "]")
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
 	ok.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok}
@@ -535,7 +535,7 @@ func (a *App) showAboutDialog() {
 		_ = openURL("https://github.com/CMR0649/ffmpeg-tui")
 	})
 
-	ok := tview.NewButton("[" + a.s.OK + "]")
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
 	ok.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{github, ok}

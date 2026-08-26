@@ -31,10 +31,10 @@ func (a *App) buildFilesPage() tview.Primitive {
 	a.updateOutputDirButton()
 	a.outputDirBtn.SetSelectedFunc(func() { a.editOutputDir() })
 
-	addBtn := tview.NewButton(a.s.AddFile)
+	addBtn := tview.NewButton(tview.Escape(a.s.AddFile))
 	addBtn.SetSelectedFunc(func() { a.onAddFile() })
 	a.filesAddBtn = addBtn
-	setBtn := tview.NewButton(a.s.SetContainer)
+	setBtn := tview.NewButton(tview.Escape(a.s.SetContainer))
 	setBtn.SetSelectedFunc(func() { a.onSetContainer() })
 	a.filesSetBtn = setBtn
 

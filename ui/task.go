@@ -200,11 +200,11 @@ func (a *App) probeDuration(path string) float64 {
 func (a *App) buildTasksPage() tview.Primitive {
 	a.taskList = tview.NewList()
 
-	addBtn := tview.NewButton(a.s.TaskAdd)
+	addBtn := tview.NewButton(tview.Escape(a.s.TaskAdd))
 	addBtn.SetSelectedFunc(func() { a.addTasksFromFiles() })
-	startBtn := tview.NewButton(a.s.TaskStart)
+	startBtn := tview.NewButton(tview.Escape(a.s.TaskStart))
 	startBtn.SetSelectedFunc(func() { a.startTasks() })
-	clearBtn := tview.NewButton(a.s.TaskClear)
+	clearBtn := tview.NewButton(tview.Escape(a.s.TaskClear))
 	clearBtn.SetSelectedFunc(func() { a.clearFinishedTasks() })
 
 	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn}
