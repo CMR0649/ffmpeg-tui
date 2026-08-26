@@ -46,22 +46,20 @@ func relaunchInTerminal() bool {
 		cmd.Env = env
 		return cmd.Start() == nil
 	default:
-		// Linux 等：依次尝试常见终端模拟器。
-		// gnome-terminal 新版本用 "--" 传命令，其余用 "-e"。
-		for _, t := range []struct{ bin, sep string }{
-			{"gnome-terminal", "--"},
-			{"x-terminal-emulator", "-e"},
-			{"konsole", "-e"},
-			{"xfce4-terminal", "-e"},
-			{"xterm", "-e"},
+		// Linux 等：依次尝试常见终端模拟器，统一使用 "-e <程序>" 形式
+		// （Ghostty/gnome-terminal/konsole/xfce4-terminal/xterm 均支持；
+		// 注意不能用 "--"：Ghostty 会把 "--" 当作未知配置键解析，报
+		// "unknown field" / "invalid field" 错误）。
+		for _, t := range []string{
+			"ghostty",
+			"gnome-terminal",
+			"x-terminal-emulator",
+			"konsole",
+			"xfce4-terminal",
+			"xterm",
 		} {
-			if p, err := exec.LookPath(t.bin); err == nil {
-				args := []string{}
-				if t.sep != "" {
-					args = append(args, t.sep)
-				}
-				args = append(args, exe)
-				cmd := exec.Command(p, args...)
+			if p, err := exec.LookPath(t); err == nil {
+				cmd := exec.Command(p, "-e", exe)
 				cmd.Env = env
 				if err := cmd.Start(); err == nil {
 					return true
