@@ -112,7 +112,7 @@ func (a *App) switchTab(i int) {
 	a.current = ((i % n) + n) % n
 	a.pages.SwitchToPage(tabNames[a.current])
 	a.renderTabBar()
-	a.tviewApp.SetFocus(a.pages.GetPageItem(tabNames[a.current]))
+	a.tviewApp.SetFocus(a.pages.GetPage(tabNames[a.current]))
 }
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出。
