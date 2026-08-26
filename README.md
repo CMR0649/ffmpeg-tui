@@ -10,12 +10,9 @@
 运行build.sh（Windows需运行build.bat）
 
 ## 运行
-Linux：`./bin/ffmpeg-tui`；Windows：`bin\ffmpeg-tui.exe`
-
-**双击可执行文件也可直接打开 TUI**：启动时会检测是否已有终端（tty）；
-没有（如文件管理器中双击）时自动在终端模拟器中重新启动（Linux：
-gnome-terminal/konsole/xfce4-terminal/xterm 等；Windows：PowerShell
-新建控制台窗口），并通过环境变量防止递归；找不到可用终端时打印提示。
+一般来说，双击可执行文件即可，如果无法运行，请在终端中执行
+> [!NOTE]
+> Windows用户建议使用[Windows Terminal](https://apps.microsoft.com/detail/9n0dx20hk701)
 
 ## 按键
 
