@@ -63,7 +63,6 @@ type App struct {
 	dialogFocusIndex int
 	dialogButtons    []tview.Primitive // 对话框内横向按钮组：[确定] [取消]（左右键切换）
 	optDialog        *optionDialog     // 选项对话框状态（支持 "/" 搜索过滤）
-	searching        bool              // 是否正在搜索选项对话框
 }
 
 // NewApp 创建并初始化应用。

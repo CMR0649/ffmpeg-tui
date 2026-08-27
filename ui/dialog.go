@@ -58,11 +58,6 @@ func (a *App) closeDialog() {
 	}
 	a.dialogOpen = false
 	a.rootPages.RemovePage("dialog")
-	if a.searching {
-		a.searching = false
-		a.buildOptionDialog()
-		return
-	}
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
@@ -160,24 +155,78 @@ func (a *App) buildOptionDialog() {
 }
 
 // startOptionSearch 打开搜索框过滤选项对话框；取消时回到原对话框。
+// startOptionSearch 打开搜索弹窗：标题沿用原弹窗，输入框 + 实时结果列表，
+// 结果随输入实时刷新，选中后直接应用（不再重新打开原弹窗）。
 func (a *App) startOptionSearch() {
 	d := a.optDialog
 	if d == nil {
 		return
 	}
-	a.searching = true
-	a.showInputDialog(a.s.Search, d.filter, func(text string) {
-		a.searching = false
-		d.filter = strings.TrimSpace(text)
-		a.buildOptionDialog()
+	input := tview.NewInputField()
+	input.SetFieldWidth(0) // 填满弹窗内宽
+	list := tview.NewList()
+
+	// applyFilter 按输入内容实时过滤并重建结果列表。
+	applyFilter := func(text string) {
+		d.filter = text
+		d.filtered = d.filtered[:0]
+		needle := strings.ToLower(text)
+		for i, opt := range d.options {
+			if needle == "" || strings.Contains(strings.ToLower(opt), needle) {
+				d.filtered = append(d.filtered, i)
+			}
+		}
+		list.Clear()
+		for _, idx := range d.filtered {
+			idx := idx
+			list.AddItem(d.options[idx], "", 0, func() {
+				a.closeDialog()
+				d.confirm(idx)
+			})
+		}
+		if len(d.filtered) == 0 {
+			list.AddItem(a.noMatchLabel(), "", 0, nil)
+		}
+	}
+	input.SetChangedFunc(applyFilter)
+	input.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			// 输入框 Enter：直接应用当前高亮的结果。
+			ci := list.GetCurrentItem()
+			a.closeDialog()
+			if ci >= 0 && ci < len(d.filtered) {
+				d.confirm(d.filtered[ci])
+			}
+		}
 	})
+	applyFilter(d.filter)
+
+	body := tview.NewFlex().SetDirection(tview.FlexRow)
+	body.AddItem(input, 1, 0, true)
+	body.AddItem(nil, 1, 0, false) // 输入框与结果列表之间的间隔
+	body.AddItem(list, 0, 1, true)
+
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
+	ok.SetSelectedFunc(func() {
+		ci := list.GetCurrentItem()
+		a.closeDialog()
+		if ci >= 0 && ci < len(d.filtered) {
+			d.confirm(d.filtered[ci])
+		}
+	})
+	cancel.SetSelectedFunc(func() { a.closeDialog() })
+
+	a.dialogButtons = []tview.Primitive{ok, cancel}
+	a.showDialog(a.buildDialogBox(d.title, body, 62, 16, ok, cancel),
+		[]tview.Primitive{input, list, ok, cancel}, input)
 }
 
 // showInputDialog 显示输入对话框；confirm(text) 在确定后调用。
 func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	input := tview.NewInputField()
 	input.SetText(initial)
-	input.SetFieldWidth(34)
+	input.SetFieldWidth(0) // 0 = 填满弹窗内宽
 	input.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			a.closeDialog()
