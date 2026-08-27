@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Strings 保存界面文本（中英文），用于语言切换。
+// Strings 保存界面文本（中英文），用于语言切换
 type Strings struct {
 	// 标签页
 	TabFiles, TabVideo, TabAudio, TabTasks, TabSettings string
@@ -98,11 +98,11 @@ var zh = &Strings{
 	TasksTitle: " 任务 ",
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
-	NoFilesToTask:         "请先在文件页添加输入文件。",
+	NoFilesToTask:         "请先在文件页添加输入文件",
 	ContainerTitle:        "输出容器",
 	ContainerFailed:       "无法获取容器格式列表",
 	PresetUnsupported:     "当前编码器不提供 preset 选项",
-	QualityUnsupportedMsg: "当前编码器不支持设置质量值。",
+	QualityUnsupportedMsg: "当前编码器不支持设置质量值",
 	AboutTitle:            "关于",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
@@ -178,14 +178,14 @@ var en = &Strings{
 
 // detectLang 按环境变量检测语言（优先级与 GNU gettext 一致）：
 // LANGUAGE > LC_ALL > LC_MESSAGES > LANG；返回 "zh" 或 "en"，
-// 无法判断时返回 ""。
+// 无法判断时返回 ""
 func detectLang() string {
 	for _, name := range []string{"LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"} {
 		v := os.Getenv(name)
 		if v == "" {
 			continue
 		}
-		// LANGUAGE 可以是冒号分隔的列表，取第一个。
+		// LANGUAGE 可以是冒号分隔的列表，取第一个
 		lv := strings.ToLower(strings.Split(v, ":")[0])
 		if strings.HasPrefix(lv, "zh") || strings.HasPrefix(lv, "cmn") {
 			return "zh"
@@ -197,7 +197,7 @@ func detectLang() string {
 	return ""
 }
 
-// langStrings 返回指定语言的字符串表。
+// langStrings 返回指定语言的字符串表
 func langStrings(lang string) *Strings {
 	if lang == "en" {
 		return en
@@ -205,7 +205,7 @@ func langStrings(lang string) *Strings {
 	return zh
 }
 
-// effectiveLang 计算当前语言：配置显式设置优先，否则按环境变量，最后默认中文。
+// effectiveLang 计算当前语言：配置显式设置优先，否则按环境变量，最后默认中文
 func effectiveLang(cfgLang string) string {
 	if cfgLang == "zh" || cfgLang == "en" {
 		return cfgLang

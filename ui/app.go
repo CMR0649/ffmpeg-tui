@@ -1,4 +1,4 @@
-// Package ui 实现 ffmpeg-tui 的界面层：顶部标签栏、内容区与底部按键提示。
+// Package ui 实现 ffmpeg-tui 的界面层：顶部标签栏、内容区与底部按键提示
 package ui
 
 import (
@@ -10,18 +10,18 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Version 是当前版本号。
-const Version = "beta1.1"
+// Version 是当前版本号
+const Version = "beta1.2"
 
-// tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）。
+// tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
 var tabKeys = []string{"files", "video", "audio", "tasks", "settings"}
 
-// tabNames 按当前语言返回标签页显示名。
+// tabNames 按当前语言返回标签页显示名
 func (a *App) tabNames() []string {
 	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabSettings}
 }
 
-// App 组装整个 TUI 界面。
+// App 组装整个 TUI 界面
 type App struct {
 	tviewApp  *tview.Application
 	pages     *tview.Pages // 标签页内容
@@ -65,7 +65,7 @@ type App struct {
 	optDialog        *optionDialog     // 选项对话框状态（支持 "/" 搜索过滤）
 }
 
-// NewApp 创建并初始化应用。
+// NewApp 创建并初始化应用
 func NewApp() *App {
 	// 统一使用单线边框
 	tview.Borders.HorizontalFocus = tview.BoxDrawingsLightHorizontal
@@ -81,16 +81,16 @@ func NewApp() *App {
 		cfg:             DefaultConfig(),
 	}
 
-	// 加载默认配置（若存在，来自「指定默认配置」）。
+	// 加载默认配置（若存在，来自「指定默认配置」）
 	if p := defaultConfigPath(); fileExists(p) {
 		_ = a.cfg.LoadJSON(p)
 	}
 
-	// 语言：配置显式设置优先，否则按环境变量。
+	// 语言：配置显式设置优先，否则按环境变量
 	a.lang = effectiveLang(a.cfg.Lang)
 	a.s = langStrings(a.lang)
 
-	// 编码器/解码器列表（用配置指定的 ffmpeg 路径）。
+	// 编码器/解码器列表（用配置指定的 ffmpeg 路径）
 	loadCodecLists(a.ffmpegBin())
 	a.pages = tview.NewPages()
 	for i, key := range tabKeys {
@@ -103,9 +103,9 @@ func NewApp() *App {
 		a.pages.AddPage(key, content, true, i == 0)
 	}
 
-	// 文本区显式样式：白字黑底。
+	// 文本区显式样式：白字黑底
 	// 若不设置，tview 会用 ColorDefault 背景填充文本区，浅色主题终端下
-	// 整行会跟随终端默认背景（如白色），导致标签栏显示异常。
+	// 整行会跟随终端默认背景（如白色），导致标签栏显示异常
 	textStyle := tcell.StyleDefault.
 		Foreground(tview.Styles.PrimaryTextColor).
 		Background(tview.Styles.PrimitiveBackgroundColor)
@@ -139,7 +139,7 @@ func NewApp() *App {
 	mainRoot.AddItem(a.pages, 0, 1, true)
 	mainRoot.AddItem(footer, 1, 0, false)
 
-	// 根页面：主界面 + 模态对话框层。
+	// 根页面：主界面 + 模态对话框层
 	a.rootPages = tview.NewPages()
 	a.rootPages.AddPage("main", mainRoot, true, true)
 
@@ -153,8 +153,8 @@ func NewApp() *App {
 	return a
 }
 
-// handleMouse 全局鼠标处理：滚轮在列表上滚动选择选项。
-// 标签栏（y=0）的滚轮交给 handleTabBarClick 切换标签。
+// handleMouse 全局鼠标处理：滚轮在列表上滚动选择选项
+// 标签栏（y=0）的滚轮交给 handleTabBarClick 切换标签
 func (a *App) handleMouse(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
 	if action != tview.MouseScrollUp && action != tview.MouseScrollDown {
 		return event, action
@@ -182,31 +182,31 @@ func (a *App) handleMouse(event *tcell.EventMouse, action tview.MouseAction) (*t
 	return event, action
 }
 
-// Run 启动事件循环。
+// Run 启动事件循环
 func (a *App) Run() {
 	if err := a.tviewApp.Run(); err != nil {
 		panic(err)
 	}
 }
 
-// renderTabBar 重绘标签栏：当前标签以白色背景高亮（黑色文字），其余为默认样式。
+// renderTabBar 重绘标签栏：当前标签以白色背景高亮（黑色文字），其余为默认样式
 func (a *App) renderTabBar() {
 	var sb strings.Builder
 	x := 0
 	a.tabRanges = a.tabRanges[:0]
 	for i, name := range a.tabNames() {
-		// 转义方括号，避免被当作颜色标签（中文标签名不会命中，转义仅为稳妥）。
+		// 转义方括号，避免被当作颜色标签（中文标签名不会命中，转义仅为稳妥）
 		label := tview.Escape("[" + name + "]")
 		width := runewidth.StringWidth(label)
 		if i == a.current {
 			sb.WriteString("[black:white]  ")
 			sb.WriteString(label)
 			// 注意：tview 中 [-] 只重置前景色，背景色会延续导致整行变白，
-			// 必须用 [-:-:-] 同时重置前景/背景/属性。
+			// 必须用 [-:-:-] 同时重置前景/背景/属性
 			sb.WriteString("  [-:-:-]")
 			width += 4
 		} else {
-			// 未选中标签显式使用白字黑底，不依赖重置标签，保证各种终端一致。
+			// 未选中标签显式使用白字黑底，不依赖重置标签，保证各种终端一致
 			sb.WriteString("[white:black]   ")
 			sb.WriteString(label)
 			sb.WriteString("   ")
@@ -218,7 +218,7 @@ func (a *App) renderTabBar() {
 	a.tabBar.SetText(sb.String())
 }
 
-// focusOnDialogList 报告当前焦点是否在对话框的选项列表上（选项对话框）。
+// focusOnDialogList 报告当前焦点是否在对话框的选项列表上（选项对话框）
 func (a *App) focusOnDialogList() bool {
 	if !a.dialogOpen {
 		return false
@@ -228,8 +228,8 @@ func (a *App) focusOnDialogList() bool {
 }
 
 // moveHorizontalFocus 处理左/右方向键：当焦点位于横向排列的按钮组
-// （页面底部按钮组，或对话框 [确定] [取消]）时，在同组按钮间循环切换焦点。
-// 返回 true 表示事件已消费。
+// （页面底部按钮组，或对话框 [确定] [取消]）时，在同组按钮间循环切换焦点
+// 返回 true 表示事件已消费
 func (a *App) moveHorizontalFocus(left bool) bool {
 	var group []tview.Primitive
 	if a.dialogOpen {
@@ -260,7 +260,7 @@ func (a *App) moveHorizontalFocus(left bool) bool {
 	return true
 }
 
-// switchTab 切换到第 i 个标签（越界自动循环）。
+// switchTab 切换到第 i 个标签（越界自动循环）
 func (a *App) switchTab(i int) {
 	n := len(tabKeys)
 	if n == 0 {
@@ -273,7 +273,7 @@ func (a *App) switchTab(i int) {
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
-// renderFooter 刷新底部按键提示：Delete 提示仅在文件页显示。
+// renderFooter 刷新底部按键提示：Delete 提示仅在文件页显示
 func (a *App) renderFooter() {
 	if a.current == 0 {
 		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + "    " + a.s.FooterDelete + " ")
@@ -282,7 +282,7 @@ func (a *App) renderFooter() {
 	}
 }
 
-// refreshAllPages 加载配置后刷新所有选项页。
+// refreshAllPages 加载配置后刷新所有选项页
 func (a *App) refreshAllPages() {
 	if a.videoList != nil {
 		a.refreshVideoPage()
@@ -296,9 +296,9 @@ func (a *App) refreshAllPages() {
 	a.updateOutputDirButton()
 }
 
-// handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出。
-// 方向键由当前页面的列表组件自行处理（用于选择项目）。
-// 对话框打开时：Esc 关闭对话框，其余按键交给对话框组件。
+// handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出
+// 方向键由当前页面的列表组件自行处理（用于选择项目）
+// 对话框打开时：Esc 关闭对话框，其余按键交给对话框组件
 func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Key() {
 	case tcell.KeyCtrlC:
@@ -325,14 +325,14 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	case tcell.KeyLeft, tcell.KeyRight:
 		// 左/右方向键在横向排列的选项中切换焦点：
 		// 对话框内 [确定]/[取消]、页面底部按钮组；
-		// 焦点在页面列表时，→ 进入第一个按钮、← 进入最后一个按钮。
+		// 焦点在页面列表时，→ 进入第一个按钮、← 进入最后一个按钮
 		left := event.Key() == tcell.KeyLeft
 		if a.dialogOpen {
 			if a.moveHorizontalFocus(left) {
 				return nil
 			}
 			// 焦点在对话框选项列表时，左右键进入 [确定]/[取消] 按钮组
-			// （→ 到 [确定]，← 到 [取消]；输入框内左右键仍为光标移动）。
+			// （→ 到 [确定]，← 到 [取消]；输入框内左右键仍为光标移动）
 			if a.focusOnDialogList() {
 				if left {
 					a.tviewApp.SetFocus(a.dialogButtons[len(a.dialogButtons)-1])
@@ -360,7 +360,7 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		up := event.Key() == tcell.KeyUp
 		if a.dialogOpen {
 			// 输入对话框：↑/↓ 在输入框与 [确定]/[取消] 之间切换焦点；
-			// 选项对话框（焦点在列表）时上下键仍用于选择选项。
+			// 选项对话框（焦点在列表）时上下键仍用于选择选项
 			if a.dialogInputOrButtonFocused() {
 				if up {
 					a.dialogFocusPrev()
@@ -371,13 +371,13 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			}
 			return event
 		}
-		// 页面：焦点在底部按钮时，↑/↓ 返回页面列表。
+		// 页面：焦点在底部按钮时，↑/↓ 返回页面列表
 		if len(a.pageButtons()) > 0 && a.focusOnPageButtons() {
 			a.tviewApp.SetFocus(a.pageList())
 			return nil
 		}
 	case tcell.KeyDelete:
-		// 文件界面：Delete 移除当前选中的文件（并同步文件列表数据）。
+		// 文件界面：Delete 移除当前选中的文件（并同步文件列表数据）
 		if !a.dialogOpen && a.current == 0 && a.filesList != nil && a.filesList.GetItemCount() > 0 {
 			idx := a.filesList.GetCurrentItem()
 			a.filesList.RemoveItem(idx)
@@ -394,7 +394,7 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		a.tviewApp.Stop()
 		return nil
 	case tcell.KeyRune:
-		// "/" 在选项对话框中打开搜索框过滤选项（如编码器/解码器列表）。
+		// "/" 在选项对话框中打开搜索框过滤选项（如编码器/解码器列表）
 		if event.Rune() == '/' && a.dialogOpen && a.optDialog != nil && a.focusOnDialogList() {
 			a.startOptionSearch()
 			return nil
@@ -417,7 +417,7 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页）。
+// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页）
 func (a *App) pageFocusables() []tview.Primitive {
 	switch a.current {
 	case 0:
@@ -428,7 +428,7 @@ func (a *App) pageFocusables() []tview.Primitive {
 	return nil
 }
 
-// pageButtons 当前页面的底部横向按钮组。
+// pageButtons 当前页面的底部横向按钮组
 func (a *App) pageButtons() []tview.Primitive {
 	switch a.current {
 	case 0:
@@ -439,7 +439,7 @@ func (a *App) pageButtons() []tview.Primitive {
 	return nil
 }
 
-// pageList 当前页面的主列表。
+// pageList 当前页面的主列表
 func (a *App) pageList() tview.Primitive {
 	switch a.current {
 	case 0:
@@ -450,7 +450,7 @@ func (a *App) pageList() tview.Primitive {
 	return nil
 }
 
-// pageFocusNext / pageFocusPrev 在当前页面的 Tab 焦点循环中移动。
+// pageFocusNext / pageFocusPrev 在当前页面的 Tab 焦点循环中移动
 func (a *App) pageFocusNext() {
 	if p := a.pageList(); p == nil {
 		return
@@ -470,7 +470,7 @@ func (a *App) pageFocusPrev() {
 	a.tviewApp.SetFocus(items[(a.pageCurrentIndex()-1+len(items))%len(items)])
 }
 
-// pageCurrentIndex 当前焦点在当前页面焦点循环中的下标。
+// pageCurrentIndex 当前焦点在当前页面焦点循环中的下标
 func (a *App) pageCurrentIndex() int {
 	cur := a.tviewApp.GetFocus()
 	for i, p := range a.pageFocusables() {
@@ -481,7 +481,7 @@ func (a *App) pageCurrentIndex() int {
 	return 0
 }
 
-// focusOnPageList 报告当前焦点是否在当前页面的主列表上。
+// focusOnPageList 报告当前焦点是否在当前页面的主列表上
 func (a *App) focusOnPageList() bool {
 	cur := a.tviewApp.GetFocus()
 	for _, p := range a.pageFocusables() {
@@ -492,7 +492,7 @@ func (a *App) focusOnPageList() bool {
 	return false
 }
 
-// focusOnPageButtons 报告当前焦点是否在当前页面底部按钮组上。
+// focusOnPageButtons 报告当前焦点是否在当前页面底部按钮组上
 func (a *App) focusOnPageButtons() bool {
 	cur := a.tviewApp.GetFocus()
 	for _, p := range a.pageButtons() {
@@ -504,7 +504,7 @@ func (a *App) focusOnPageButtons() bool {
 }
 
 // dialogInputOrButtonFocused 报告当前焦点是否在输入框或对话框按钮上
-// （输入对话框场景，用于 ↑/↓ 焦点切换）。
+// （输入对话框场景，用于 ↑/↓ 焦点切换）
 func (a *App) dialogInputOrButtonFocused() bool {
 	cur := a.tviewApp.GetFocus()
 	if _, ok := cur.(*tview.InputField); ok {
@@ -518,10 +518,10 @@ func (a *App) dialogInputOrButtonFocused() bool {
 	return false
 }
 
-// handleTabBarClick 支持鼠标点击标签栏切换标签，以及滚轮在标签间切换。
+// handleTabBarClick 支持鼠标点击标签栏切换标签，以及滚轮在标签间切换
 // 在按下（MouseLeftDown）时即切换：tview 的 MouseLeftClick 要求按下与释放
 // 位于同一单元格，真实鼠标点击的微小位移会导致单击事件不产生（表现为
-// 需要双击才切换），因此这里直接响应按下事件。
+// 需要双击才切换），因此这里直接响应按下事件
 func (a *App) handleTabBarClick(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 	if a.dialogOpen { // 对话框打开时不切换标签
 		return action, event

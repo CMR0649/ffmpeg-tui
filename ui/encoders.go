@@ -13,7 +13,7 @@ import (
 // 编码器/解码器列表直接通过 ffmpeg 命令获取
 //   ffmpeg -encoders   → 编码器列表
 //   ffmpeg -decoders   → 解码器列表
-// 编码器详情通过 `ffmpeg -h encoder=名称` 获取。
+// 编码器详情通过 `ffmpeg -h encoder=名称` 获取
 
 var (
 	videoEncoders []string // 视频编码器
@@ -25,7 +25,7 @@ var (
 	encoderInfoCache = map[string]*EncoderInfo{}
 )
 
-// EncoderInfo 通过 `ffmpeg -h encoder=名称` 获取的编码器详情。
+// EncoderInfo 通过 `ffmpeg -h encoder=名称` 获取的编码器详情
 type EncoderInfo struct {
 	Name         string
 	Description  string
@@ -34,7 +34,7 @@ type EncoderInfo struct {
 	OptionValues map[string][]string // 选项的枚举取值（如 -preset 的 slow/medium/…）
 }
 
-// HasOption 报告编码器是否支持指定选项（如 preset / crf / qscale）。
+// HasOption 报告编码器是否支持指定选项（如 preset / crf / qscale）
 func (e *EncoderInfo) HasOption(name string) bool {
 	for _, o := range e.Options {
 		if o == name {
@@ -44,10 +44,10 @@ func (e *EncoderInfo) HasOption(name string) bool {
 	return false
 }
 
-// ffmpegBin 返回 ffmpeg 可执行文件路径。
+// ffmpegBin 返回 ffmpeg 可执行文件路径
 // 配置的 FFmpegPath 按 bin 目录处理（如 .../ffmpeg/bin 或带尾斜杠），
 // 取该目录下的 ffmpeg（Windows 为 ffmpeg.exe）；仅当路径为已存在的
-// 可执行文件时直接使用（兼容旧配置）；为空时用系统 PATH。
+// 可执行文件时直接使用（兼容旧配置）；为空时用系统 PATH
 func ffmpegBin(cfg *Config) string {
 	if cfg != nil && cfg.FFmpegPath != "" {
 		if isFile(cfg.FFmpegPath) {
@@ -58,10 +58,10 @@ func ffmpegBin(cfg *Config) string {
 	return "ffmpeg"
 }
 
-// ffprobeBin 返回 ffprobe 可执行文件路径。
+// ffprobeBin 返回 ffprobe 可执行文件路径
 // FFmpegPath 按 bin 目录处理，取同目录下的 ffprobe（Windows 为 ffprobe.exe）；
 // 仅当路径为已存在的文件时取同目录下的 ffprobe（兼容旧配置）；
-// 为空时用系统 PATH。
+// 为空时用系统 PATH
 func ffprobeBin(cfg *Config) string {
 	if cfg != nil && cfg.FFmpegPath != "" {
 		if isFile(cfg.FFmpegPath) {
@@ -72,7 +72,7 @@ func ffprobeBin(cfg *Config) string {
 	return ffprobeExeName()
 }
 
-// ffmpegExeName ffmpeg 可执行文件名（Windows 带 .exe）。
+// ffmpegExeName ffmpeg 可执行文件名（Windows 带 .exe）
 func ffmpegExeName() string {
 	if runtime.GOOS == "windows" {
 		return "ffmpeg.exe"
@@ -80,7 +80,7 @@ func ffmpegExeName() string {
 	return "ffmpeg"
 }
 
-// ffprobeExeName ffprobe 可执行文件名（Windows 带 .exe）。
+// ffprobeExeName ffprobe 可执行文件名（Windows 带 .exe）
 func ffprobeExeName() string {
 	if runtime.GOOS == "windows" {
 		return "ffprobe.exe"
@@ -88,13 +88,13 @@ func ffprobeExeName() string {
 	return "ffprobe"
 }
 
-// isFile 报告路径是否为已存在的普通文件。
+// isFile 报告路径是否为已存在的普通文件
 func isFile(p string) bool {
 	fi, err := os.Stat(p)
 	return err == nil && !fi.IsDir()
 }
 
-// resetCodecCaches 清空编码器/解码器/格式与详情缓存（ffmpeg 路径变化后重新加载）。
+// resetCodecCaches 清空编码器/解码器/格式与详情缓存（ffmpeg 路径变化后重新加载）
 func resetCodecCaches() {
 	videoEncoders, audioEncoders = nil, nil
 	videoDecoders, audioDecoders = nil, nil
@@ -153,7 +153,7 @@ func parseFormats(text string) []string {
 	return names
 }
 
-// codecLineRe 匹配 " V....D libx264  H.264 ..." 行。
+// codecLineRe 匹配 " V....D libx264  H.264 ..." 行
 var codecLineRe = regexp.MustCompile(`^\s([VA])\S*\s+(\S+)\s*(.*)$`)
 
 // parseCodecList 解析编码器/解码器列表文本，返回视频与音频名称列表
@@ -180,7 +180,7 @@ func parseCodecList(text string) (video, audio []string) {
 	return
 }
 
-// codecListFromCmd 运行 ffmpeg -encoders / -decoders 获取列表。
+// codecListFromCmd 运行 ffmpeg -encoders / -decoders 获取列表
 func codecListFromCmd(bin string, args ...string) (video, audio []string) {
 	if _, err := exec.LookPath(bin); err != nil {
 		return nil, nil
@@ -205,9 +205,9 @@ func probeEncoder(bin, name string) *EncoderInfo {
 	return info
 }
 
-// parseEncoderHelp 解析 `ffmpeg -h encoder=名称` 输出。
+// parseEncoderHelp 解析 `ffmpeg -h encoder=名称` 输出
 // AVOptions 段中：选项行 "  -preset  <int>  …"，其后的缩进行
-// "     slow  0  …" 是该选项的枚举取值（如 av1_nvenc 的 preset）。
+// "     slow  0  …" 是该选项的枚举取值（如 av1_nvenc 的 preset）
 func parseEncoderHelp(out string, info *EncoderInfo) {
 	inOptions := false
 	lastOption := ""

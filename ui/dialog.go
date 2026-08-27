@@ -31,7 +31,7 @@ func (a *App) showDialog(content tview.Primitive, focusables []tview.Primitive, 
 	a.tviewApp.SetFocus(initial)
 }
 
-// dialogFocusNext / dialogFocusPrev 在对话框内循环移动焦点（Tab / Shift-Tab）。
+// dialogFocusNext / dialogFocusPrev 在对话框内循环移动焦点（Tab / Shift-Tab）
 func (a *App) dialogFocusNext() {
 	n := len(a.dialogFocusables)
 	if n == 0 {
@@ -50,8 +50,8 @@ func (a *App) dialogFocusPrev() {
 	a.tviewApp.SetFocus(a.dialogFocusables[a.dialogFocusIndex])
 }
 
-// closeDialog 关闭当前对话框，并把焦点还给当前标签页内容。
-// 若正处在选项搜索中，则重建选项对话框（取消搜索）。
+// closeDialog 关闭当前对话框，并把焦点还给当前标签页内容
+// 若正处在选项搜索中，则重建选项对话框（取消搜索）
 func (a *App) closeDialog() {
 	if !a.dialogOpen {
 		return
@@ -97,14 +97,14 @@ type optionDialog struct {
 	list     *tview.List
 }
 
-// showOptionDialog 显示选项选择对话框；confirm(index) 在确定后调用。
-// 打开后按 "/" 打开搜索框过滤选项。
+// showOptionDialog 显示选项选择对话框；confirm(index) 在确定后调用
+// 打开后按 "/" 打开搜索框过滤选项
 func (a *App) showOptionDialog(title string, options []string, confirm func(int)) {
 	a.optDialog = &optionDialog{title: title, options: options, confirm: confirm}
 	a.buildOptionDialog()
 }
 
-// buildOptionDialog 按当前过滤条件重建选项对话框。
+// buildOptionDialog 按当前过滤条件重建选项对话框
 func (a *App) buildOptionDialog() {
 	d := a.optDialog
 	if d == nil {
@@ -154,9 +154,9 @@ func (a *App) buildOptionDialog() {
 	a.showDialog(a.buildDialogBox(d.title, list, 56, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
 }
 
-// startOptionSearch 打开搜索框过滤选项对话框；取消时回到原对话框。
+// startOptionSearch 打开搜索框过滤选项对话框；取消时回到原对话框
 // startOptionSearch 打开搜索弹窗：标题沿用原弹窗，输入框 + 实时结果列表，
-// 结果随输入实时刷新，选中后直接应用（不再重新打开原弹窗）。
+// 结果随输入实时刷新，选中后直接应用（不再重新打开原弹窗）
 func (a *App) startOptionSearch() {
 	d := a.optDialog
 	if d == nil {
@@ -166,7 +166,7 @@ func (a *App) startOptionSearch() {
 	input.SetFieldWidth(0) // 填满弹窗内宽
 	list := tview.NewList()
 
-	// applyFilter 按输入内容实时过滤并重建结果列表。
+	// applyFilter 按输入内容实时过滤并重建结果列表
 	applyFilter := func(text string) {
 		d.filter = text
 		d.filtered = d.filtered[:0]
@@ -191,7 +191,7 @@ func (a *App) startOptionSearch() {
 	input.SetChangedFunc(applyFilter)
 	input.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
-			// 输入框 Enter：直接应用当前高亮的结果。
+			// 输入框 Enter：直接应用当前高亮的结果
 			ci := list.GetCurrentItem()
 			a.closeDialog()
 			if ci >= 0 && ci < len(d.filtered) {
@@ -222,7 +222,7 @@ func (a *App) startOptionSearch() {
 		[]tview.Primitive{input, list, ok, cancel}, input)
 }
 
-// showInputDialog 显示输入对话框；confirm(text) 在确定后调用。
+// showInputDialog 显示输入对话框；confirm(text) 在确定后调用
 func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	input := tview.NewInputField()
 	input.SetText(initial)
@@ -246,7 +246,7 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	a.showDialog(a.buildDialogBox(title, input, 62, 8, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
 }
 
-// showMessageDialog 显示提示对话框（单一 [确定] 按钮）。
+// showMessageDialog 显示提示对话框（单一 [确定] 按钮）
 func (a *App) showMessageDialog(title, text string) {
 	tv := tview.NewTextView()
 	tv.SetText(text)
@@ -282,7 +282,7 @@ func (a *App) onAddFile() {
 	})
 }
 
-// pickFileFromSystem 调用系统文件选择器添加文件；无可用的选择器时给出提示。
+// pickFileFromSystem 调用系统文件选择器添加文件；无可用的选择器时给出提示
 func (a *App) pickFileFromSystem() {
 	var path string
 	var err error
@@ -326,16 +326,16 @@ func (a *App) onSetContainer() {
 	})
 }
 
-// updateFileBar 刷新底部操作栏右侧的容器名显示。
+// updateFileBar 刷新底部操作栏右侧的容器名显示
 func (a *App) updateFileBar() {
 	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
 }
 
 // ---------- 系统文件选择器 ----------
 
-// runSystemFilePicker 调用系统文件选择器，返回选中的文件路径。
-// 用户取消时返回空字符串；找不到可用的选择器时返回错误。
-// Linux: zenity / qarma / kdialog / Xdialog；Windows: PowerShell OpenFileDialog。
+// runSystemFilePicker 调用系统文件选择器，返回选中的文件路径
+// 用户取消时返回空字符串；找不到可用的选择器时返回错误
+// Linux: zenity / qarma / kdialog / Xdialog；Windows: PowerShell OpenFileDialog
 func runSystemFilePicker() (string, error) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -363,7 +363,7 @@ func runSystemFilePicker() (string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
-		// 非零退出（如用户取消）视为取消。
+		// 非零退出（如用户取消）视为取消
 		return "", nil
 	}
 	return strings.TrimSpace(string(out)), nil
@@ -372,7 +372,7 @@ func runSystemFilePicker() (string, error) {
 // ---------- ffprobe 文件信息 ----------
 
 // probeFile 调用 ffprobe（Windows 为 ffprobe.exe）读取媒体文件信息，
-// 返回一行格式化摘要；ffprobe 不可用或解析失败时返回相应提示。
+// 返回一行格式化摘要；ffprobe 不可用或解析失败时返回相应提示
 func (a *App) probeFile(path string) string {
 	name := a.ffprobeBin()
 	exe, err := exec.LookPath(name)
@@ -392,23 +392,23 @@ func (a *App) probeFile(path string) string {
 	return a.formatProbeInfo(string(out))
 }
 
-// ffprobeBin 返回 ffprobe 可执行文件（跟随 FFmpeg 路径设置）。
+// ffprobeBin 返回 ffprobe 可执行文件（跟随 FFmpeg 路径设置）
 func (a *App) ffprobeBin() string {
 	return ffprobeBin(a.cfg)
 }
 
-// ffmpegBin 返回 ffmpeg 可执行文件（跟随 FFmpeg 路径设置）。
+// ffmpegBin 返回 ffmpeg 可执行文件（跟随 FFmpeg 路径设置）
 func (a *App) ffmpegBin() string {
 	return ffmpegBin(a.cfg)
 }
 
-// parseFailedText 返回文件信息解析失败的提示。
+// parseFailedText 返回文件信息解析失败的提示
 func (a *App) parseFailedText() string {
 	return a.s.ParseInfoFailed
 }
 
 // formatProbeInfo 解析 ffprobe 的 key=value 输出（含 [STREAM]/[FORMAT] 段落），
-// 生成如 "H.264 · 1920×1080 · 29.97 fps · AAC 48000Hz · 2ch · 00:12:08 · 1.2 GB" 的摘要。
+// 生成如 "H.264 · 1920×1080 · 29.97 fps · AAC 48000Hz · 2ch · 00:12:08 · 1.2 GB" 的摘要
 func (a *App) formatProbeInfo(raw string) string {
 	var format map[string]string
 	var streams []map[string]string
@@ -488,7 +488,7 @@ func (a *App) formatProbeInfo(raw string) string {
 	return strings.Join(parts, " · ")
 }
 
-// formatFPS 格式化帧率：整数显示为 "25 fps"，否则保留两位小数（如 "29.97 fps"）。
+// formatFPS 格式化帧率：整数显示为 "25 fps"，否则保留两位小数（如 "29.97 fps"）
 func formatFPS(fps float64) string {
 	if fps == math.Trunc(fps) {
 		return fmt.Sprintf("%.0f fps", fps)
@@ -496,7 +496,7 @@ func formatFPS(fps float64) string {
 	return fmt.Sprintf("%.2f fps", fps)
 }
 
-// parseFPS 解析 ffprobe 的帧率（如 "30000/1001" 或 "30"），无法解析时返回 0。
+// parseFPS 解析 ffprobe 的帧率（如 "30000/1001" 或 "30"），无法解析时返回 0
 func parseFPS(rate string) float64 {
 	if rate == "" || rate == "0/0" || rate == "N/A" {
 		return 0
@@ -515,7 +515,7 @@ func parseFPS(rate string) float64 {
 	return f
 }
 
-// parseDuration 解析时长（秒），无效时返回 0。
+// parseDuration 解析时长（秒），无效时返回 0
 func parseDuration(d string) float64 {
 	f, err := strconv.ParseFloat(d, 64)
 	if err != nil || f <= 0 {
@@ -524,7 +524,7 @@ func parseDuration(d string) float64 {
 	return f
 }
 
-// formatDuration 把秒数格式化为 00:12:08 / 00:45。
+// formatDuration 把秒数格式化为 00:12:08 / 00:45
 func formatDuration(seconds float64) string {
 	s := int(seconds)
 	h := s / 3600
@@ -536,7 +536,7 @@ func formatDuration(seconds float64) string {
 	return fmt.Sprintf("%02d:%02d", m, sec)
 }
 
-// parseSize 解析文件大小（字节），无效时返回 0。
+// parseSize 解析文件大小（字节），无效时返回 0
 func parseSize(size string) int64 {
 	n, err := strconv.ParseInt(size, 10, 64)
 	if err != nil || n <= 0 {
@@ -545,7 +545,7 @@ func parseSize(size string) int64 {
 	return n
 }
 
-// formatSize 把字节数格式化为 MB / GB。
+// formatSize 把字节数格式化为 MB / GB
 func formatSize(bytes int64) string {
 	const (
 		mb = 1 << 20
@@ -562,7 +562,7 @@ func formatSize(bytes int64) string {
 }
 
 // showAboutDialog 显示关于弹窗：FFmpeg-TUI / 版本 / by CMR0649 /
-// GitHub 链接（蓝色，点击或选中确认后打开项目主页）。
+// GitHub 链接（蓝色，点击或选中确认后打开项目主页）
 func (a *App) showAboutDialog() {
 	tv := tview.NewTextView()
 	tv.SetDynamicColors(true)
@@ -576,7 +576,7 @@ func (a *App) showAboutDialog() {
 		Background(tview.Styles.PrimitiveBackgroundColor))
 
 	github := tview.NewButton(a.s.AboutGitHub) // 标签直接为 GitHub（不带方括号，避免被解析为颜色标签）
-	// 白字蓝底（普通与聚焦状态一致），符合需求。
+	// 白字蓝底（普通与聚焦状态一致），符合需求
 	github.SetStyle(tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.ColorWhite))
 	github.SetActivatedStyle(tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.ColorWhite))
 	github.SetSelectedFunc(func() {
@@ -592,7 +592,7 @@ func (a *App) showAboutDialog() {
 		[]tview.Primitive{tv, github, ok}, github)
 }
 
-// openURL 用系统默认方式打开链接。
+// openURL 用系统默认方式打开链接
 func openURL(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -606,7 +606,7 @@ func openURL(url string) error {
 	return cmd.Start()
 }
 
-// noMatchLabel 「无匹配项」按当前语言。
+// noMatchLabel 「无匹配项」按当前语言
 func (a *App) noMatchLabel() string {
 	if a.lang == "en" {
 		return "(no match)"
@@ -614,10 +614,10 @@ func (a *App) noMatchLabel() string {
 	return "（无匹配项）"
 }
 
-// filePickerFailMsg 系统文件选择器不可用时的提示。
+// filePickerFailMsg 系统文件选择器不可用时的提示
 func (a *App) filePickerFailMsg(err string) string {
 	if a.lang == "en" {
 		return "Cannot open system file picker: " + err + "\nPlease use \"Enter path\" instead."
 	}
-	return "无法调用系统文件选择器：" + err + "\n请改用「输入路径」方式添加文件。"
+	return "无法调用系统文件选择器：" + err + "\n请改用「输入路径」方式添加文件"
 }

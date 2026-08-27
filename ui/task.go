@@ -12,7 +12,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Task 一个转码任务。
+// Task 一个转码任务
 type Task struct {
 	Input    string
 	Output   string
@@ -25,10 +25,10 @@ type Task struct {
 	index    int
 }
 
-// timeRe 匹配 ffmpeg 进度输出中的 time=HH:MM:SS.xx。
+// timeRe 匹配 ffmpeg 进度输出中的 time=HH:MM:SS.xx
 var timeRe = regexp.MustCompile(`time=(\d+):(\d+):(\d+\.?\d*)`)
 
-// addTasksFromFiles 把文件页的文件列表生成为转码任务。
+// addTasksFromFiles 把文件页的文件列表生成为转码任务
 func (a *App) addTasksFromFiles() {
 	if len(a.files) == 0 {
 		a.showMessageDialog(a.s.Hint, a.s.NoFilesToTask)
@@ -50,7 +50,7 @@ func (a *App) addTasksFromFiles() {
 	a.refreshTasks()
 }
 
-// refreshTasks 重建任务列表。
+// refreshTasks 重建任务列表
 func (a *App) refreshTasks() {
 	a.taskList.Clear()
 	for _, t := range a.tasks {
@@ -79,14 +79,14 @@ func (a *App) taskSecondaryText(t *Task) string {
 	}
 }
 
-// updateTask 更新单个任务在列表中的显示。
+// updateTask 更新单个任务在列表中的显示
 func (a *App) updateTask(t *Task) {
 	a.tviewApp.QueueUpdateDraw(func() {
 		a.taskList.SetItemText(t.index, taskMainText(t), a.taskSecondaryText(t))
 	})
 }
 
-// startTasks 串行执行所有等待中的任务。
+// startTasks 串行执行所有等待中的任务
 func (a *App) startTasks() {
 	go func() {
 		for _, t := range a.tasks {
@@ -109,7 +109,7 @@ func (a *App) startTasks() {
 	}()
 }
 
-// runTask 执行单个转码任务并解析进度；失败时返回 ffmpeg 的错误摘要。
+// runTask 执行单个转码任务并解析进度；失败时返回 ffmpeg 的错误摘要
 func (a *App) runTask(t *Task) error {
 	cmd := exec.Command(a.ffmpegBin(), a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
 	stderr, err := cmd.StderrPipe()
@@ -151,7 +151,7 @@ func (a *App) runTask(t *Task) error {
 	return nil
 }
 
-// probeStreams 用 ffprobe 检测输入文件的视频/音频流。
+// probeStreams 用 ffprobe 检测输入文件的视频/音频流
 func (a *App) probeStreams(path string) (hasVideo, hasAudio bool) {
 	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1", path).Output()
 	if err != nil {
@@ -168,7 +168,7 @@ func (a *App) probeStreams(path string) (hasVideo, hasAudio bool) {
 	return hasVideo, hasAudio
 }
 
-// clearFinishedTasks 清空已完成与失败的任务。
+// clearFinishedTasks 清空已完成与失败的任务
 func (a *App) clearFinishedTasks() {
 	kept := make([]*Task, 0, len(a.tasks))
 	for _, t := range a.tasks {
@@ -180,7 +180,7 @@ func (a *App) clearFinishedTasks() {
 	a.refreshTasks()
 }
 
-// probeDuration 用 ffprobe 获取媒体时长（秒）。
+// probeDuration 用 ffprobe 获取媒体时长（秒）
 func (a *App) probeDuration(path string) float64 {
 	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1", path).Output()
 	if err != nil {
@@ -196,7 +196,7 @@ func (a *App) probeDuration(path string) float64 {
 	return 0
 }
 
-// buildTasksPage 构建「任务」页：任务列表 + 底部操作栏（[添加任务] [开始] [清空]）。
+// buildTasksPage 构建「任务」页：任务列表 + 底部操作栏（[添加任务] [开始] [清空]）
 func (a *App) buildTasksPage() tview.Primitive {
 	a.taskList = tview.NewList()
 

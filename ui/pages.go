@@ -8,8 +8,8 @@ import (
 	"github.com/rivo/tview"
 )
 
-// buildPage 根据标签序号返回对应的内容页（与 tabKeys 顺序一致）。
-// 序号 0（文件页）由 App.buildFilesPage 构建，这里处理其余页面。
+// buildPage 根据标签序号返回对应的内容页（与 tabKeys 顺序一致）
+// 序号 0（文件页）由 App.buildFilesPage 构建，这里处理其余页面
 func (a *App) buildPage(index int) tview.Primitive {
 	switch index {
 	case 1:
@@ -68,7 +68,7 @@ func (a *App) buildFilesPage() tview.Primitive {
 	return page
 }
 
-// updateOutputDirButton 刷新输出目录按钮文本。
+// updateOutputDirButton 刷新输出目录按钮文本
 func (a *App) updateOutputDirButton() {
 	if a.outputDirBtn == nil {
 		return
@@ -81,7 +81,7 @@ func (a *App) updateOutputDirButton() {
 }
 
 // editOutputDir 编辑输出目录：空或 $file 表示与输入文件相同；
-// 输入文件在不同目录时分别输出到与之对应的目录。
+// 输入文件在不同目录时分别输出到与之对应的目录
 func (a *App) editOutputDir() {
 	a.showInputDialog(a.s.OutputDirTitle, a.cfg.OutputDir, func(text string) {
 		a.cfg.OutputDir = strings.TrimSpace(text)

@@ -7,8 +7,8 @@ import (
 	"github.com/rivo/tview"
 )
 
-// buildAudioPage 构建「音频」页：编码器 / 比特率 / 采样率 / 位深度。
-// 编码器列表从 ffmpeg 命令动态加载。
+// buildAudioPage 构建「音频」页：编码器 / 比特率 / 采样率 / 位深度
+// 编码器列表从 ffmpeg 命令动态加载
 func (a *App) buildAudioPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
@@ -18,7 +18,7 @@ func (a *App) buildAudioPage() tview.Primitive {
 	return list
 }
 
-// refreshAudioPage 按当前配置与语言重建音频页选项列表。
+// refreshAudioPage 按当前配置与语言重建音频页选项列表
 func (a *App) refreshAudioPage() {
 	l := a.audioList
 	l.Clear()
@@ -28,7 +28,7 @@ func (a *App) refreshAudioPage() {
 	l.AddItem(a.s.BitDepth, a.bitDepthLabel(), 0, func() { a.editBitDepth() })
 }
 
-// editAudioEncoder 编码器（默认复制流），列表动态加载。
+// editAudioEncoder 编码器（默认复制流），列表动态加载
 func (a *App) editAudioEncoder() {
 	loadCodecLists(a.ffmpegBin())
 	labels := make([]string, 0, len(audioEncoders)+1)
@@ -48,7 +48,7 @@ func (a *App) editAudioEncoder() {
 	})
 }
 
-// audioEncoderLabel 编码器项的当前值显示。
+// audioEncoderLabel 编码器项的当前值显示
 func (a *App) audioEncoderLabel() string {
 	if a.cfg.AudioEncoder == "" {
 		return a.copyStreamLabel()
@@ -59,12 +59,12 @@ func (a *App) audioEncoderLabel() string {
 	return a.cfg.AudioEncoder
 }
 
-// audioIsWav 报告当前音频编码器是否为 WAV/PCM（位深度与编码器名称同步）。
+// audioIsWav 报告当前音频编码器是否为 WAV/PCM（位深度与编码器名称同步）
 func (a *App) audioIsWav() bool {
 	return strings.HasPrefix(a.cfg.AudioEncoder, "pcm_")
 }
 
-// editAudioBitrate 比特率输入（kbps）。
+// editAudioBitrate 比特率输入（kbps）
 func (a *App) editAudioBitrate() {
 	a.showInputDialog(a.s.AudioBitrate+"（kbps）", a.cfg.AudioBitrate, func(text string) {
 		a.cfg.AudioBitrate = strings.TrimSpace(text)
@@ -72,7 +72,7 @@ func (a *App) editAudioBitrate() {
 	})
 }
 
-// audioBitrateLabel 比特率项的当前值显示。
+// audioBitrateLabel 比特率项的当前值显示
 func (a *App) audioBitrateLabel() string {
 	if a.cfg.AudioBitrate == "" {
 		return "—"
@@ -80,7 +80,7 @@ func (a *App) audioBitrateLabel() string {
 	return a.cfg.AudioBitrate + " kbps"
 }
 
-// editSampleRate 采样率选择。
+// editSampleRate 采样率选择
 func (a *App) editSampleRate() {
 	labels := make([]string, 0, len(sampleRates)+1)
 	labels = append(labels, a.originalLabel())
@@ -95,7 +95,7 @@ func (a *App) editSampleRate() {
 	})
 }
 
-// sampleRateLabel 采样率项的当前值显示。
+// sampleRateLabel 采样率项的当前值显示
 func (a *App) sampleRateLabel() string {
 	if a.cfg.SampleRate == "" {
 		return a.originalLabel()
@@ -105,7 +105,7 @@ func (a *App) sampleRateLabel() string {
 
 // editBitDepth 位深度：对所有音频编码器可用（通过 -sample_fmt s[位深]），
 // 例如 `ffmpeg -i in.mp3 -sample_fmt s16 out.flac`；
-// WAV/PCM 编码器选择位深时同时同步编码器名称（16→pcm_s16le 等）。
+// WAV/PCM 编码器选择位深时同时同步编码器名称（16→pcm_s16le 等）
 func (a *App) editBitDepth() {
 	labels := make([]string, len(bitDepths))
 	for i, b := range bitDepths {
@@ -120,7 +120,7 @@ func (a *App) editBitDepth() {
 	})
 }
 
-// bitDepthLabel 位深度项的当前值显示。
+// bitDepthLabel 位深度项的当前值显示
 func (a *App) bitDepthLabel() string {
 	if a.cfg.BitDepth == "" {
 		return a.s.BitDepthNotSet

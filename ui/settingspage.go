@@ -7,13 +7,13 @@ import (
 	"github.com/rivo/tview"
 )
 
-// outputNamingOptions 输出选项（单选）——按当前语言生成。
+// outputNamingOptions 输出选项（单选）——按当前语言生成
 func (a *App) outputNamingOptions() []string {
 	return []string{a.s.NamingTimestamp, a.s.NamingSuffix, a.s.NamingNone}
 }
 
 // buildSettingsPage 构建「设置」页：输出选项 / FFmpeg 路径 / 语言 /
-// 配置管理 / 关于（最后一个选项）。
+// 配置管理 / 关于（最后一个选项）
 func (a *App) buildSettingsPage() tview.Primitive {
 	list := tview.NewList()
 	list.SetBorder(true)
@@ -23,7 +23,7 @@ func (a *App) buildSettingsPage() tview.Primitive {
 	return list
 }
 
-// refreshSettingsPage 按当前配置与语言重建设置页选项列表。
+// refreshSettingsPage 按当前配置与语言重建设置页选项列表
 func (a *App) refreshSettingsPage() {
 	l := a.settingsList
 	l.Clear()
@@ -37,7 +37,7 @@ func (a *App) refreshSettingsPage() {
 	l.AddItem(a.s.About, "", 0, func() { a.showAboutDialog() }) // 最后一个选项
 }
 
-// editOutputNaming 输出选项（添加时间 / 指定后缀 / 不添加后缀）。
+// editOutputNaming 输出选项（添加时间 / 指定后缀 / 不添加后缀）
 func (a *App) editOutputNaming() {
 	a.showOptionDialog(a.s.OutputOption, a.outputNamingOptions(), func(i int) {
 		switch i {
@@ -55,7 +55,7 @@ func (a *App) editOutputNaming() {
 	})
 }
 
-// outputNamingLabel 输出选项项的当前值显示。
+// outputNamingLabel 输出选项项的当前值显示
 func (a *App) outputNamingLabel() string {
 	switch a.cfg.OutputNaming {
 	case "suffix":
@@ -67,12 +67,12 @@ func (a *App) outputNamingLabel() string {
 	}
 }
 
-// editSuffix 指定后缀输入。
+// editSuffix 指定后缀输入
 func (a *App) editSuffix() {
 	a.promptSuffix()
 }
 
-// promptSuffix 弹出后缀输入对话框。
+// promptSuffix 弹出后缀输入对话框
 func (a *App) promptSuffix() {
 	a.showInputDialog(a.s.Suffix, a.cfg.Suffix, func(text string) {
 		a.cfg.Suffix = strings.TrimSpace(text)
@@ -80,7 +80,7 @@ func (a *App) promptSuffix() {
 	})
 }
 
-// suffixLabel 指定后缀项的当前值显示。
+// suffixLabel 指定后缀项的当前值显示
 func (a *App) suffixLabel() string {
 	if a.cfg.Suffix == "" {
 		return "—"
@@ -88,11 +88,11 @@ func (a *App) suffixLabel() string {
 	return a.cfg.Suffix
 }
 
-// editFFmpegPath 指定 FFmpeg 可执行文件路径（留空 = 系统 PATH）。
+// editFFmpegPath 指定 FFmpeg 可执行文件路径（留空 = 系统 PATH）
 func (a *App) editFFmpegPath() {
 	a.showInputDialog(a.s.FFmpegPath, a.cfg.FFmpegPath, func(text string) {
 		a.cfg.FFmpegPath = strings.TrimSpace(text)
-		// 路径变化：清空编码器/格式缓存并按新路径重新加载。
+		// 路径变化：清空编码器/格式缓存并按新路径重新加载
 		resetCodecCaches()
 		loadCodecLists(a.ffmpegBin())
 		loadFormats(a.ffmpegBin())
@@ -100,7 +100,7 @@ func (a *App) editFFmpegPath() {
 	})
 }
 
-// ffmpegPathLabel FFmpeg 路径项的当前值显示。
+// ffmpegPathLabel FFmpeg 路径项的当前值显示
 func (a *App) ffmpegPathLabel() string {
 	if a.cfg.FFmpegPath == "" {
 		return a.s.FFmpegPathDefault
@@ -108,7 +108,7 @@ func (a *App) ffmpegPathLabel() string {
 	return a.cfg.FFmpegPath
 }
 
-// editLanguage 切换界面语言（中文 / English）。
+// editLanguage 切换界面语言（中文 / English）
 func (a *App) editLanguage() {
 	a.showOptionDialog(a.s.Language, []string{a.s.LangZh, a.s.LangEn}, func(i int) {
 		if i == 0 {
@@ -119,23 +119,23 @@ func (a *App) editLanguage() {
 	})
 }
 
-// languageLabel 语言项的当前值显示。
+// languageLabel 语言项的当前值显示
 func (a *App) languageLabel() string {
 	return langStrings(a.lang).LangZh + " / " + langStrings(a.lang).LangEn
 }
 
-// setLanguage 切换语言并刷新所有界面文本。
+// setLanguage 切换语言并刷新所有界面文本
 func (a *App) setLanguage(lang string) {
 	a.cfg.Lang = lang
 	a.lang = lang
 	a.s = langStrings(lang)
-	// 重建选项页与任务页（数据在 cfg / a.tasks 中），刷新页面标题与按钮文本。
+	// 重建选项页与任务页（数据在 cfg / a.tasks 中），刷新页面标题与按钮文本
 	for _, i := range []int{1, 2, 3, 4} {
 		a.pages.RemovePage(tabKeys[i])
 		a.pages.AddPage(tabKeys[i], a.buildPage(i), true, false)
 	}
 	a.refreshTasks()
-	// 文件页：更新标题与底部按钮文本。
+	// 文件页：更新标题与底部按钮文本
 	if a.filesPage != nil {
 		a.filesPage.SetTitle(" " + a.s.FilesTitle + " ")
 	}
@@ -153,7 +153,7 @@ func (a *App) setLanguage(lang string) {
 	a.renderFooter()
 }
 
-// exportConfig 导出当前配置为 JSON 文件。
+// exportConfig 导出当前配置为 JSON 文件
 func (a *App) exportConfig() {
 	a.showInputDialog(a.s.ExportCfg, "", func(path string) {
 		path = strings.TrimSpace(path)
@@ -168,7 +168,7 @@ func (a *App) exportConfig() {
 	})
 }
 
-// loadConfig 从 JSON 文件加载配置。
+// loadConfig 从 JSON 文件加载配置
 func (a *App) loadConfig() {
 	a.showInputDialog(a.s.LoadCfg, "", func(path string) {
 		path = strings.TrimSpace(path)
@@ -179,7 +179,7 @@ func (a *App) loadConfig() {
 			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadCfgFailed, err.Error()))
 			return
 		}
-		// 配置可能包含语言设置，重新应用语言。
+		// 配置可能包含语言设置，重新应用语言
 		a.lang = effectiveLang(a.cfg.Lang)
 		a.s = langStrings(a.lang)
 		a.refreshAllPages()
@@ -189,7 +189,7 @@ func (a *App) loadConfig() {
 	})
 }
 
-// saveAsDefault 把当前配置保存为默认配置（启动时自动加载）。
+// saveAsDefault 把当前配置保存为默认配置（启动时自动加载）
 func (a *App) saveAsDefault() {
 	if err := a.cfg.SaveJSON(defaultConfigPath()); err != nil {
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SaveDefaultFailed, err.Error()))

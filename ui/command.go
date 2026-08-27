@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-// buildCommand 根据当前配置与输入文件的流类型生成 ffmpeg 转码命令参数。
+// buildCommand 根据当前配置与输入文件的流类型生成 ffmpeg 转码命令参数
 // 选项映射以 FFmpeg 官方文档为准：-c:v/-c:a、-preset、-crf、-q:v、
-// -b:v/-maxrate/-minrate/-bufsize、-s、-r、-b:a、-ar、-sample_fmt。
+// -b:v/-maxrate/-minrate/-bufsize、-s、-r、-b:a、-ar、-sample_fmt
 // 输入没有视频/音频流时，不添加对应的 -c:v/-c:a（否则 -c:v copy 会在
-// 纯音频输入上报错）。
+// 纯音频输入上报错）
 func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []string {
 	args := []string{"-y"}
 	if a.cfg.VideoDecoder != "" {
@@ -84,7 +84,7 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 	return args
 }
 
-// cbrBufsize CBR 模式的 -bufsize（取基础比特率的 2 倍）。
+// cbrBufsize CBR 模式的 -bufsize（取基础比特率的 2 倍）
 func cbrBufsize(bitrate string) string {
 	n, err := strconv.Atoi(bitrate)
 	if err != nil || n <= 0 {
@@ -93,7 +93,7 @@ func cbrBufsize(bitrate string) string {
 	return strconv.Itoa(n * 2)
 }
 
-// containerExt 格式名 → 常用文件扩展名（未映射时用格式名本身）。
+// containerExt 格式名 → 常用文件扩展名（未映射时用格式名本身）
 func containerExt(format string) string {
 	switch format {
 	case "matroska":
@@ -108,8 +108,8 @@ func containerExt(format string) string {
 	return format
 }
 
-// outputPath 根据输出目录（$file 规则）与输出命名规则生成输出路径。
-// 输入文件在不同目录时分别输出到与之对应的目录。
+// outputPath 根据输出目录（$file 规则）与输出命名规则生成输出路径
+// 输入文件在不同目录时分别输出到与之对应的目录
 func (a *App) outputPath(input string) string {
 	dir := ResolveOutputDir(a.cfg.OutputDir, input)
 	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
@@ -126,7 +126,7 @@ func (a *App) outputPath(input string) string {
 	return filepath.Join(dir, name)
 }
 
-// qualityModeKey 归一化控制方式：兼容新键（crf/vbr/cbr）与旧配置的中文值。
+// qualityModeKey 归一化控制方式：兼容新键（crf/vbr/cbr）与旧配置的中文值
 func qualityModeKey(mode string) string {
 	switch mode {
 	case "crf", "恒定质量 CRF":
