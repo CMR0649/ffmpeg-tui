@@ -32,9 +32,7 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 					args = append(args, "-crf", a.cfg.QualityValue)
 				}
 			case "vbr":
-				if a.cfg.QualityValue != "" {
-					args = append(args, "-q:v", a.cfg.QualityValue)
-				}
+				// 质量值仅在恒定质量（CRF）模式可用，VBR 由比特率控制。
 			case "cbr":
 				if b := a.cfg.VideoBitrate; b != "" {
 					args = append(args, "-b:v", b+"k", "-minrate", b+"k", "-maxrate", b+"k", "-bufsize", cbrBufsize(b)+"k")

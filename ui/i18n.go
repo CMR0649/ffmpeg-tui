@@ -51,6 +51,7 @@ type Strings struct {
 	// 对话框提示
 	PresetUnsupported     string
 	QualityUnsupportedMsg string
+	QualityCRFOnlyMsg     string
 	// 关于
 	AboutTitle, AboutLine1, AboutLine2, AboutLine3, AboutGitHub string
 	// 其他
@@ -103,6 +104,7 @@ var zh = &Strings{
 	ContainerFailed:       "无法获取容器格式列表",
 	PresetUnsupported:     "当前编码器不提供 preset 选项",
 	QualityUnsupportedMsg: "当前编码器不支持设置质量值",
+	QualityCRFOnlyMsg:     "质量值仅在恒定质量（CRF）模式下可设置",
 	AboutTitle:            "关于",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
@@ -162,6 +164,7 @@ var en = &Strings{
 	ContainerFailed:       "Cannot get container formats",
 	PresetUnsupported:     "This encoder has no preset option",
 	QualityUnsupportedMsg: "This encoder does not support a quality value.",
+	QualityCRFOnlyMsg:     "Quality value is only available in Constant Quality (CRF) mode.",
 	AboutTitle:            "About",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",

@@ -211,6 +211,11 @@ func (a *App) editQualityValue() {
 		a.showMessageDialog(a.s.Quality, a.s.QualityUnsupportedMsg)
 		return
 	}
+	// 质量值仅在恒定质量（CRF）模式下可设置。
+	if qualityModeKey(a.cfg.QualityMode) != "crf" {
+		a.showMessageDialog(a.s.Quality, a.s.QualityCRFOnlyMsg)
+		return
+	}
 	a.showInputDialog(a.s.Quality, a.cfg.QualityValue, func(text string) {
 		text = strings.TrimSpace(text)
 		if text == "" {
@@ -225,6 +230,10 @@ func (a *App) editQualityValue() {
 func (a *App) qualityValueLabel() string {
 	if !a.videoEncoderHasQuality() {
 		return a.s.QualityUnsupported
+	}
+	// 质量值仅在恒定质量（CRF）模式下有效，其他模式显示 "-"。
+	if qualityModeKey(a.cfg.QualityMode) != "crf" {
+		return "-"
 	}
 	if a.cfg.QualityValue == "" {
 		return "—"
