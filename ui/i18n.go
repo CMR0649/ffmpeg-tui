@@ -47,7 +47,7 @@ type Strings struct {
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
 	// 任务进度（frame= 行解析）
-	FrameFPS, FrameBitrate, FrameSpeed string
+	FrameCount, FrameFPS, FrameBitrate, FrameSpeed string
 	// 预设页
 	PresetsTitle                                           string
 	SavePreset, SavePresetTitle                            string
@@ -114,7 +114,7 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
-	FrameFPS:      "已处理帧", FrameBitrate: "比特率", FrameSpeed: "速率",
+	FrameCount:    "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
@@ -187,7 +187,7 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
-	FrameFPS:      "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
+	FrameCount:    "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",

@@ -26,11 +26,12 @@ type Task struct {
 	hasAudio bool
 	index    int
 	// frame= 行解析出的实时数据
-	frames, bitrate, speed string
+	frameCount, fps, bitrate, speed string
 }
 
-// frameRe 匹配 ffmpeg 进度输出中以 frame= 开头的行，提取 fps/bitrate/speed
-var frameRe = regexp.MustCompile(`frame=\s*\S+\s+fps=\s*(\S+).*?bitrate=\s*(\S+).*?speed=\s*(\S+)`)
+// frameRe 匹配 ffmpeg 进度输出中以 frame= 开头的行，
+// 提取 frame(已处理帧)/fps(帧处理速率)/bitrate/speed
+var frameRe = regexp.MustCompile(`frame=\s*(\S+)\s+fps=\s*(\S+).*?bitrate=\s*(\S+).*?speed=\s*(\S+)`)
 
 // scanProgress 进度输出以 \r 分隔（ffmpeg 在同一行用回车覆盖），
 // 既按 \r 也按 \n 分行
@@ -99,14 +100,17 @@ func (a *App) taskSecondaryText(t *Task) string {
 }
 
 // taskProgressText 转码中的实时数据显示：仅接受以 frame= 开头的行，
-// 展示 fps/bitrate/speed；中文用对应汉字段名，英文用原文
+// 展示 frame/fps/bitrate/speed；中文用对应汉字段名，英文用原文
 func (a *App) taskProgressText(t *Task) string {
-	if t.frames == "" && t.bitrate == "" && t.speed == "" {
+	if t.frameCount == "" && t.fps == "" && t.bitrate == "" && t.speed == "" {
 		return a.s.TaskRunning
 	}
 	var parts []string
-	if t.frames != "" {
-		parts = append(parts, a.s.FrameFPS+"="+t.frames)
+	if t.frameCount != "" {
+		parts = append(parts, a.s.FrameCount+"="+t.frameCount)
+	}
+	if t.fps != "" {
+		parts = append(parts, a.s.FrameFPS+"="+t.fps)
 	}
 	if t.bitrate != "" {
 		parts = append(parts, a.s.FrameBitrate+"="+t.bitrate)
@@ -177,7 +181,7 @@ func (a *App) runTask(t *Task) error {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "frame=") {
 			if m := frameRe.FindStringSubmatch(line); m != nil {
-				t.frames, t.bitrate, t.speed = m[1], m[2], m[3]
+				t.frameCount, t.fps, t.bitrate, t.speed = m[1], m[2], m[3], m[4]
 				a.updateTask(t)
 			}
 		}
