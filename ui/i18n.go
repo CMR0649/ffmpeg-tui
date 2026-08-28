@@ -34,7 +34,7 @@ type Strings struct {
 	QualityUnsupported                 string
 	// 音频页
 	AudioTitle, AudioEncoder, AudioBitrate, SampleRate, BitDepth string
-	BitDepthNotSet                                               string
+	Unspecified                                                  string
 	WavSync                                                      string
 	// 设置页
 	SettingsTitle, OutputOption, Suffix, ExportCfg, LoadCfg, SetDefaultCfg, FFmpegPath, Language, About string
@@ -95,10 +95,10 @@ var zh = &Strings{
 	QualityUnsupported: "编码器不支持",
 	AudioTitle:         " 音频 — 编码选项 ",
 	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
-	BitDepthNotSet: "未设置",
-	WavSync:        "位深度",
-	SettingsTitle:  " 设置 ",
-	OutputOption:   "输出选项", Suffix: "指定后缀",
+	Unspecified:   "未指定",
+	WavSync:       "位深度",
+	SettingsTitle: " 设置 ",
+	OutputOption:  "输出选项", Suffix: "指定后缀",
 	ExportCfg: "导出配置（JSON）", LoadCfg: "加载配置", SetDefaultCfg: "保存为默认配置",
 	FFmpegPath: "FFmpeg 路径", Language: "语言", About: "关于",
 	NamingTimestamp:   "添加时间（默认）",
@@ -166,10 +166,10 @@ var en = &Strings{
 	QualityUnsupported: "Not supported by encoder",
 	AudioTitle:         " Audio — Encoding Options ",
 	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
-	BitDepthNotSet: "Not set",
-	WavSync:        "Bit depth",
-	SettingsTitle:  " Settings ",
-	OutputOption:   "Output naming", Suffix: "Suffix",
+	Unspecified:   "Unspecified",
+	WavSync:       "Bit depth",
+	SettingsTitle: " Settings ",
+	OutputOption:  "Output naming", Suffix: "Suffix",
 	ExportCfg: "Export config (JSON)", LoadCfg: "Load config", SetDefaultCfg: "Save as default config",
 	FFmpegPath: "FFmpeg path", Language: "Language", About: "About",
 	NamingTimestamp:   "Add timestamp (default)",

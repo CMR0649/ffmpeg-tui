@@ -80,10 +80,10 @@ func (a *App) audioBitrateLabel() string {
 	return a.cfg.AudioBitrate + " kbps"
 }
 
-// editSampleRate 采样率选择
+// editSampleRate 采样率选择（"未指定" = 不附加 -ar 参数）
 func (a *App) editSampleRate() {
 	labels := make([]string, 0, len(sampleRates)+1)
-	labels = append(labels, a.originalLabel())
+	labels = append(labels, a.s.Unspecified)
 	labels = append(labels, sampleRates...)
 	a.showOptionDialog(a.s.SampleRate, labels, func(i int) {
 		if i == 0 {
@@ -98,23 +98,33 @@ func (a *App) editSampleRate() {
 // sampleRateLabel 采样率项的当前值显示
 func (a *App) sampleRateLabel() string {
 	if a.cfg.SampleRate == "" {
-		return a.originalLabel()
+		return a.s.Unspecified
 	}
 	return a.cfg.SampleRate + " Hz"
 }
 
 // editBitDepth 位深度：对所有音频编码器可用（通过 -sample_fmt s[位深]），
 // 例如 `ffmpeg -i in.mp3 -sample_fmt s16 out.flac`；
-// WAV/PCM 编码器选择位深时同时同步编码器名称（16→pcm_s16le 等）
+// WAV/PCM 编码器选择位深时同时同步编码器名称（16→pcm_s16le 等）；
+// "未指定" = 不附加 -sample_fmt 参数
 func (a *App) editBitDepth() {
-	labels := make([]string, len(bitDepths))
-	for i, b := range bitDepths {
-		labels[i] = b.Label
+	labels := make([]string, 0, len(bitDepths)+1)
+	labels = append(labels, a.s.Unspecified)
+	for _, b := range bitDepths {
+		labels = append(labels, b.Label)
 	}
 	a.showOptionDialog(a.s.BitDepth, labels, func(i int) {
-		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i].Label, "-bit")
+		if i == 0 {
+			a.cfg.BitDepth = ""
+			if a.audioIsWav() {
+				a.cfg.AudioEncoder = "pcm_s16le" // WAV/PCM：回退到默认 16-bit 编码器
+			}
+			a.refreshAudioPage()
+			return
+		}
+		a.cfg.BitDepth = strings.TrimSuffix(bitDepths[i-1].Label, "-bit")
 		if a.audioIsWav() {
-			a.cfg.AudioEncoder = bitDepths[i].Name // WAV/PCM：与编码器名称同步
+			a.cfg.AudioEncoder = bitDepths[i-1].Name // WAV/PCM：与编码器名称同步
 		}
 		a.refreshAudioPage()
 	})
@@ -123,7 +133,7 @@ func (a *App) editBitDepth() {
 // bitDepthLabel 位深度项的当前值显示
 func (a *App) bitDepthLabel() string {
 	if a.cfg.BitDepth == "" {
-		return a.s.BitDepthNotSet
+		return a.s.Unspecified
 	}
 	return fmt.Sprintf("%s-bit", a.cfg.BitDepth)
 }
