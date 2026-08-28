@@ -124,18 +124,15 @@ func (a *App) languageLabel() string {
 	return langStrings(a.lang).LangZh + " / " + langStrings(a.lang).LangEn
 }
 
-// setLanguage 切换语言并刷新所有界面文本
-func (a *App) setLanguage(lang string) {
-	a.cfg.Lang = lang
-	a.lang = lang
-	a.s = langStrings(lang)
-	// 重建选项页与任务页（数据在 cfg / a.tasks 中），刷新页面标题与按钮文本
+// refreshAllUI 完整重建界面：选项页/任务页重建（标题随之更新）、
+// 文件页标题与按钮/容器标签刷新、标签栏与底部提示刷新。
+// 加载配置或切换语言后调用，确保所有选项与文本即时生效。
+func (a *App) refreshAllUI() {
 	for _, i := range []int{1, 2, 3, 4} {
 		a.pages.RemovePage(tabKeys[i])
 		a.pages.AddPage(tabKeys[i], a.buildPage(i), true, false)
 	}
 	a.refreshTasks()
-	// 文件页：更新标题与底部按钮文本
 	if a.filesPage != nil {
 		a.filesPage.SetTitle(" " + a.s.FilesTitle + " ")
 	}
@@ -151,6 +148,14 @@ func (a *App) setLanguage(lang string) {
 	}
 	a.renderTabBar()
 	a.renderFooter()
+}
+
+// setLanguage 切换语言并刷新所有界面文本
+func (a *App) setLanguage(lang string) {
+	a.cfg.Lang = lang
+	a.lang = lang
+	a.s = langStrings(lang)
+	a.refreshAllUI()
 }
 
 // exportConfig 导出当前配置为 JSON 文件
@@ -179,12 +184,10 @@ func (a *App) loadConfig() {
 			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadCfgFailed, err.Error()))
 			return
 		}
-		// 配置可能包含语言设置，重新应用语言
+		// 配置可能包含语言设置，重新应用语言并完整重建界面
 		a.lang = effectiveLang(a.cfg.Lang)
 		a.s = langStrings(a.lang)
-		a.refreshAllPages()
-		a.renderTabBar()
-		a.renderFooter()
+		a.refreshAllUI()
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.Loaded, path))
 	})
 }

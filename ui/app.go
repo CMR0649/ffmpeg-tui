@@ -11,7 +11,7 @@ import (
 )
 
 // Version 是当前版本号
-const Version = "beta1.2"
+const Version = "beta1.3"
 
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
 var tabKeys = []string{"files", "video", "audio", "tasks", "settings"}
@@ -280,20 +280,6 @@ func (a *App) renderFooter() {
 	} else {
 		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + " ")
 	}
-}
-
-// refreshAllPages 加载配置后刷新所有选项页
-func (a *App) refreshAllPages() {
-	if a.videoList != nil {
-		a.refreshVideoPage()
-	}
-	if a.audioList != nil {
-		a.refreshAudioPage()
-	}
-	if a.settingsList != nil {
-		a.refreshSettingsPage()
-	}
-	a.updateOutputDirButton()
 }
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出
