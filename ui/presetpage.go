@@ -1,0 +1,189 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+
+// buildPresetsPage 构建「预设」页：预设列表 + 底部操作栏（[保存预设] [打开预设文件夹]）
+func (a *App) buildPresetsPage() tview.Primitive {
+	a.presetList = tview.NewList()
+
+	saveBtn := tview.NewButton(tview.Escape(a.s.SavePreset))
+	saveBtn.SetSelectedFunc(func() { a.showSavePresetDialog() })
+	openBtn := tview.NewButton(tview.Escape(a.s.OpenPresetDir))
+	openBtn.SetSelectedFunc(func() { a.openPresetDir() })
+
+	a.presetBarButtons = []tview.Primitive{saveBtn, openBtn}
+	a.presetBarFocusables = []tview.Primitive{a.presetList, saveBtn, openBtn}
+
+	bar := tview.NewFlex()
+	bar.AddItem(saveBtn, 0, 1, false)
+	bar.AddItem(nil, 2, 0, false)
+	bar.AddItem(openBtn, 0, 1, false)
+	bar.AddItem(nil, 0, 1, false)
+
+	page := tview.NewFlex().SetDirection(tview.FlexRow)
+	page.SetBorder(true)
+	page.SetTitle(a.s.PresetsTitle)
+	page.AddItem(a.presetList, 0, 1, true)
+	page.AddItem(bar, 1, 0, false)
+
+	a.refreshPresets()
+	return page
+}
+
+// refreshPresets 从预设文件夹读取并重建预设列表（按名称排序）。
+func (a *App) refreshPresets() {
+	a.presetList.Clear()
+	a.presetNames = nil
+	names, err := listPresets()
+	if err != nil {
+		return
+	}
+	a.presetNames = names
+	for _, name := range names {
+		name := name
+		a.presetList.AddItem(name, a.presetSummary(name), 0, func() { a.loadPreset(name) })
+	}
+}
+
+// presetSummary 预设的简要描述（编码器 + 容器）。
+func (a *App) presetSummary(name string) string {
+	p, err := loadPresetFile(name)
+	if err != nil {
+		return ""
+	}
+	var parts []string
+	if p.VideoEncoder != "" {
+		parts = append(parts, p.VideoEncoder)
+	}
+	if p.AudioEncoder != "" {
+		parts = append(parts, p.AudioEncoder)
+	}
+	if p.OutputContainer != "" {
+		parts = append(parts, p.OutputContainer)
+	}
+	return strings.Join(parts, " · ")
+}
+
+// loadPreset 应用选中的预设。
+func (a *App) loadPreset(name string) {
+	p, err := loadPresetFile(name)
+	if err != nil {
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadPresetFailed, err.Error()))
+		return
+	}
+	p.applyTo(a.cfg)
+	a.refreshAllUI()
+}
+
+// deletePreset 删除选中的预设。
+func (a *App) deleteSelectedPreset() {
+	if a.presetList.GetItemCount() == 0 {
+		return
+	}
+	idx := a.presetList.GetCurrentItem()
+	if idx < 0 || idx >= len(a.presetNames) {
+		return
+	}
+	name := a.presetNames[idx]
+	if err := deletePreset(name); err != nil {
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.DeletePresetFailed, err.Error()))
+		return
+	}
+	a.refreshPresets()
+}
+
+// searchPreset 打开预设搜索（按 "/" 直接进入搜索框 + 实时过滤列表）。
+func (a *App) searchPreset() {
+	names, err := listPresets()
+	if err != nil || len(names) == 0 {
+		return
+	}
+	a.optDialog = &optionDialog{
+		title:   a.s.SearchPreset,
+		options: names,
+		confirm: func(i int) { a.loadPreset(names[i]) },
+	}
+	a.startOptionSearch()
+}
+
+// showSavePresetDialog 保存预设弹窗。
+func (a *App) showSavePresetDialog() {
+	label := tview.NewTextView()
+	label.SetText(a.s.SavePresetName + "：")
+	label.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	label.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+
+	input := tview.NewInputField()
+	input.SetFieldWidth(0)
+	input.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			a.savePresetFromInput(input)
+		}
+	})
+
+	row := tview.NewFlex()
+	row.AddItem(label, 0, 1, false)
+	row.AddItem(input, 0, 4, false)
+
+	body := tview.NewFlex().SetDirection(tview.FlexRow)
+	body.AddItem(nil, 1, 0, false)
+	body.AddItem(row, 1, 0, false)
+
+	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	cancel.SetSelectedFunc(func() { a.closeDialog() })
+	ok.SetSelectedFunc(func() { a.savePresetFromInput(input) })
+
+	btnRow := tview.NewFlex()
+	btnRow.AddItem(nil, 0, 1, false) // 把按钮推到右侧
+	btnRow.AddItem(cancel, 0, 1, false)
+	btnRow.AddItem(nil, 2, 0, false)
+	btnRow.AddItem(ok, 0, 1, false)
+
+	box := tview.NewFlex().SetDirection(tview.FlexRow)
+	box.AddItem(body, 0, 1, true)
+	box.AddItem(nil, 1, 0, false)
+	box.AddItem(btnRow, 1, 0, false)
+	box.AddItem(nil, 1, 0, false)
+	box.SetBorder(true)
+	box.SetTitle("┤ " + a.s.SavePresetTitle + " ├")
+	box.SetTitleAlign(tview.AlignLeft)
+
+	grid := tview.NewGrid()
+	grid.SetColumns(0, 54, 0)
+	grid.SetRows(0, 7, 0)
+	grid.AddItem(box, 1, 1, 1, 1, 0, 0, true)
+	grid.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+
+	a.dialogButtons = []tview.Primitive{cancel, ok}
+	a.showDialog(grid, []tview.Primitive{input, cancel, ok}, input)
+}
+
+// savePresetFromInput 读取名称并保存预设。
+func (a *App) savePresetFromInput(input *tview.InputField) {
+	name := strings.TrimSpace(input.GetText())
+	a.closeDialog()
+	if name == "" {
+		return
+	}
+	p := &Preset{}
+	p.fromConfig(a.cfg)
+	if err := savePreset(name, p); err != nil {
+		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SavePresetFailed, err.Error()))
+		return
+	}
+	a.refreshPresets()
+}
+
+// openPresetDir 用系统默认文件管理器打开预设文件夹。
+func (a *App) openPresetDir() {
+	_ = openURL(presetDir())
+}

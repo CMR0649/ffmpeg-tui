@@ -11,14 +11,14 @@ import (
 )
 
 // Version 是当前版本号
-const Version = "beta1.3"
+const Version = "beta1.4"
 
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
-var tabKeys = []string{"files", "video", "audio", "tasks", "settings"}
+var tabKeys = []string{"files", "video", "audio", "tasks", "presets", "settings"}
 
 // tabNames 按当前语言返回标签页显示名
 func (a *App) tabNames() []string {
-	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabSettings}
+	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabPresets, a.s.TabSettings}
 }
 
 // App 组装整个 TUI 界面
@@ -34,7 +34,6 @@ type App struct {
 	// 文件页状态
 	filesList          *tview.List
 	fileContainerLabel *tview.TextView
-	outputContainer    string
 	fileBarFocusables  []tview.Primitive // 文件页 Tab 循环：文件列表 / 输出目录 / 添加文件 / 设置输出容器
 	fileBarButtons     []tview.Primitive // 文件页底部横向按钮组：[添加文件] [设置输出容器]（左右键切换）
 	outputDirBtn       *tview.Button     // 输出目录选项行
@@ -48,6 +47,12 @@ type App struct {
 	taskList          *tview.List
 	taskBarFocusables []tview.Primitive // 任务页 Tab 循环：任务列表 / 添加任务 / 开始 / 清空
 	taskBarButtons    []tview.Primitive // 任务页底部横向按钮组（左右键切换）
+
+	// 预设页状态
+	presetList          *tview.List
+	presetNames         []string
+	presetBarFocusables []tview.Primitive // 预设页 Tab 循环：预设列表 / 保存预设 / 打开预设文件夹
+	presetBarButtons    []tview.Primitive // 预设页底部横向按钮组（左右键切换）
 
 	// 配置与各选项页
 	cfg          *Config
@@ -76,9 +81,8 @@ func NewApp() *App {
 	tview.Borders.BottomRightFocus = tview.BoxDrawingsLightUpAndLeft
 
 	a := &App{
-		tviewApp:        tview.NewApplication(),
-		outputContainer: "mp4",
-		cfg:             DefaultConfig(),
+		tviewApp: tview.NewApplication(),
+		cfg:      DefaultConfig(),
 	}
 
 	// 加载默认配置（若存在，来自「指定默认配置」）
@@ -273,13 +277,22 @@ func (a *App) switchTab(i int) {
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
-// renderFooter 刷新底部按键提示：Delete 提示仅在文件页显示
+// renderFooter 刷新底部按键提示（按页面显示）
 func (a *App) renderFooter() {
-	if a.current == 0 {
-		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + "    " + a.s.FooterDelete + " ")
-	} else {
-		a.footer.SetText(" " + a.s.FooterSwitch + "    " + a.s.FooterSelect + " ")
+	var t string
+	switch a.current {
+	case 0:
+		t = a.s.FooterFiles
+	case 1, 2:
+		t = a.s.FooterVideoAudio
+	case 3:
+		t = a.s.FooterTasks
+	case 4:
+		t = a.s.FooterPresets
+	default:
+		t = a.s.FooterSettings
 	}
+	a.footer.SetText(" " + t + " ")
 }
 
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出
@@ -372,6 +385,11 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			}
 			return nil
 		}
+		// 预设界面：Delete 删除选中的预设
+		if !a.dialogOpen && a.current == 4 && a.presetList != nil && a.presetList.GetItemCount() > 0 {
+			a.deleteSelectedPreset()
+			return nil
+		}
 	case tcell.KeyEscape:
 		if a.dialogOpen {
 			a.closeDialog()
@@ -388,6 +406,11 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		if a.dialogOpen {
 			return event // 对话框打开时，A/D 不切换标签，按键交给对话框
 		}
+		// "/" 在预设页打开预设搜索
+		if event.Rune() == '/' && a.current == 4 && a.presetList != nil {
+			a.searchPreset()
+			return nil
+		}
 		switch event.Rune() {
 		case 'a', 'A':
 			a.switchTab(a.current - 1)
@@ -403,13 +426,15 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页）
+// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页 / 预设页）
 func (a *App) pageFocusables() []tview.Primitive {
 	switch a.current {
 	case 0:
 		return a.fileBarFocusables
 	case 3:
 		return a.taskBarFocusables
+	case 4:
+		return a.presetBarFocusables
 	}
 	return nil
 }
@@ -421,6 +446,8 @@ func (a *App) pageButtons() []tview.Primitive {
 		return a.fileBarButtons
 	case 3:
 		return a.taskBarButtons
+	case 4:
+		return a.presetBarButtons
 	}
 	return nil
 }
@@ -432,6 +459,8 @@ func (a *App) pageList() tview.Primitive {
 		return a.filesList
 	case 3:
 		return a.taskList
+	case 4:
+		return a.presetList
 	}
 	return nil
 }

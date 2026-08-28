@@ -18,6 +18,8 @@ func (a *App) buildPage(index int) tview.Primitive {
 		return a.buildAudioPage()
 	case 3:
 		return a.buildTasksPage()
+	case 4:
+		return a.buildPresetsPage()
 	default:
 		return a.buildSettingsPage()
 	}
@@ -45,7 +47,7 @@ func (a *App) buildFilesPage() tview.Primitive {
 
 	a.fileContainerLabel = tview.NewTextView()
 	a.fileContainerLabel.SetTextAlign(tview.AlignRight)
-	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
+	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.cfg.OutputContainer))
 	a.fileContainerLabel.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	a.fileContainerLabel.SetTextStyle(tcell.StyleDefault.
 		Foreground(tview.Styles.PrimaryTextColor).

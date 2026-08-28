@@ -8,9 +8,9 @@ import (
 // Strings 保存界面文本（中英文），用于语言切换
 type Strings struct {
 	// 标签页
-	TabFiles, TabVideo, TabAudio, TabTasks, TabSettings string
-	// 底部按键提示
-	FooterSwitch, FooterSelect, FooterDelete string
+	TabFiles, TabVideo, TabAudio, TabTasks, TabPresets, TabSettings string
+	// 底部按键提示（按页面）
+	FooterFiles, FooterVideoAudio, FooterPresets, FooterSettings, FooterTasks string
 	// 通用
 	OK, Cancel, Search, Hint string
 	// 文件页
@@ -45,6 +45,12 @@ type Strings struct {
 	TasksTitle, TaskAdd, TaskStart, TaskClear      string
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
+	// 预设页
+	PresetsTitle                                           string
+	SavePreset, SavePresetTitle                            string
+	OpenPresetDir, SavePresetName                          string
+	SearchPreset                                           string
+	SavePresetFailed, LoadPresetFailed, DeletePresetFailed string
 	// 输出容器
 	ContainerTitle  string
 	ContainerFailed string
@@ -60,9 +66,13 @@ type Strings struct {
 }
 
 var zh = &Strings{
-	TabFiles: "文件", TabVideo: "视频", TabAudio: "音频", TabTasks: "任务", TabSettings: "设置",
-	FooterSwitch: "A/D：切换", FooterSelect: "方向键：选择", FooterDelete: "Delete：移除",
-	OK: "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
+	TabFiles: "文件", TabVideo: "视频", TabAudio: "音频", TabTasks: "任务", TabPresets: "预设", TabSettings: "设置",
+	FooterFiles:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Delete：移除   Esc/Q：退出",
+	FooterVideoAudio: "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Esc/Q：退出",
+	FooterPresets:    "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Delete：删除   Esc：退出",
+	FooterSettings:   "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Esc/Q：退出",
+	FooterTasks:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Esc/Q：退出",
+	OK:               "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
 	OutputDirTitle:  "输出目录（$file 为输入文件目录）",
@@ -99,7 +109,14 @@ var zh = &Strings{
 	TasksTitle: " 任务 ",
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
-	NoFilesToTask:         "请先在文件页添加输入文件",
+	NoFilesToTask: "请先在文件页添加输入文件",
+	PresetsTitle:  " 预设 ",
+	SavePreset:    "[保存预设]", SavePresetTitle: "保存预设",
+	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
+	SearchPreset:          "搜索预设",
+	SavePresetFailed:      "无法保存预设：\n%s",
+	LoadPresetFailed:      "无法加载预设：\n%s",
+	DeletePresetFailed:    "无法删除预设：\n%s",
 	ContainerTitle:        "输出容器",
 	ContainerFailed:       "无法获取容器格式列表",
 	PresetUnsupported:     "当前编码器不提供 preset 选项",
@@ -120,9 +137,13 @@ var zh = &Strings{
 }
 
 var en = &Strings{
-	TabFiles: "Files", TabVideo: "Video", TabAudio: "Audio", TabTasks: "Tasks", TabSettings: "Settings",
-	FooterSwitch: "A/D: switch", FooterSelect: "Arrows: select", FooterDelete: "Delete: remove",
-	OK: "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
+	TabFiles: "Files", TabVideo: "Video", TabAudio: "Audio", TabTasks: "Tasks", TabPresets: "Presets", TabSettings: "Settings",
+	FooterFiles:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Delete: remove   Esc/Q: quit",
+	FooterVideoAudio: "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Esc/Q: quit",
+	FooterPresets:    "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Delete: delete   Esc: quit",
+	FooterSettings:   "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Esc/Q: quit",
+	FooterTasks:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Esc/Q: quit",
+	OK:               "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
 	OutputDirTitle:  "Output directory ($file = input file directory)",
@@ -159,7 +180,14 @@ var en = &Strings{
 	TasksTitle: " Tasks ",
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
-	NoFilesToTask:         "Please add input files on the Files page first.",
+	NoFilesToTask: "Please add input files on the Files page first.",
+	PresetsTitle:  " Presets ",
+	SavePreset:    "[Save preset]", SavePresetTitle: "Save preset",
+	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",
+	SearchPreset:          "Search preset",
+	SavePresetFailed:      "Cannot save preset:\n%s",
+	LoadPresetFailed:      "Cannot load preset:\n%s",
+	DeletePresetFailed:    "Cannot delete preset:\n%s",
 	ContainerTitle:        "Output container",
 	ContainerFailed:       "Cannot get container formats",
 	PresetUnsupported:     "This encoder has no preset option",

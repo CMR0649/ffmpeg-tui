@@ -128,7 +128,7 @@ func (a *App) languageLabel() string {
 // 文件页标题与按钮/容器标签刷新、标签栏与底部提示刷新。
 // 加载配置或切换语言后调用，确保所有选项与文本即时生效。
 func (a *App) refreshAllUI() {
-	for _, i := range []int{1, 2, 3, 4} {
+	for _, i := range []int{1, 2, 3, 4, 5} {
 		a.pages.RemovePage(tabKeys[i])
 		a.pages.AddPage(tabKeys[i], a.buildPage(i), true, false)
 	}
@@ -144,7 +144,7 @@ func (a *App) refreshAllUI() {
 	}
 	a.updateOutputDirButton()
 	if a.fileContainerLabel != nil {
-		a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
+		a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.cfg.OutputContainer))
 	}
 	a.renderTabBar()
 	a.renderFooter()

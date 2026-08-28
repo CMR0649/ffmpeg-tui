@@ -77,7 +77,7 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 		}
 	}
 
-	args = append(args, "-f", a.outputContainer) // 显式指定输出容器格式
+	args = append(args, "-f", a.cfg.OutputContainer) // 显式指定输出容器格式
 	args = append(args, output)
 	return args
 }
@@ -111,7 +111,7 @@ func containerExt(format string) string {
 func (a *App) outputPath(input string) string {
 	dir := ResolveOutputDir(a.cfg.OutputDir, input)
 	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
-	ext := "." + containerExt(a.outputContainer)
+	ext := "." + containerExt(a.cfg.OutputContainer)
 	name := base + ext
 	switch a.cfg.OutputNaming {
 	case "timestamp":

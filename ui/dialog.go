@@ -323,14 +323,14 @@ func (a *App) onSetContainer() {
 	labels := make([]string, len(outputFormats))
 	copy(labels, outputFormats)
 	a.showOptionDialog(a.s.ContainerTitle, labels, func(i int) {
-		a.outputContainer = outputFormats[i]
+		a.cfg.OutputContainer = outputFormats[i]
 		a.updateFileBar()
 	})
 }
 
 // updateFileBar 刷新底部操作栏右侧的容器名显示
 func (a *App) updateFileBar() {
-	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.outputContainer))
+	a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.cfg.OutputContainer))
 }
 
 // ---------- 系统文件选择器 ----------

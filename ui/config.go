@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -30,9 +31,10 @@ type Config struct {
 	BitDepth     string `json:"bit_depth"`     // 位深度
 
 	// 文件 / 输出
-	OutputDir    string `json:"output_dir"`    // 空或 $file = 输入文件所在目录
-	OutputNaming string `json:"output_naming"` // timestamp / suffix / none
-	Suffix       string `json:"suffix"`        // 指定后缀
+	OutputDir       string `json:"output_dir"`       // 空或 $file = 输入文件所在目录
+	OutputNaming    string `json:"output_naming"`    // timestamp / suffix / none
+	Suffix          string `json:"suffix"`           // 指定后缀
+	OutputContainer string `json:"output_container"` // 输出容器格式（如 mp4 / matroska）
 
 	// 运行环境
 	FFmpegPath string `json:"ffmpeg_path"` // ffmpeg 可执行文件路径（空 = 系统 PATH）
@@ -42,14 +44,19 @@ type Config struct {
 // DefaultConfig 返回默认配置。
 func DefaultConfig() *Config {
 	return &Config{
-		QualityMode:  "恒定质量 CRF",
-		QualityValue: "23",
-		OutputNaming: "timestamp",
+		QualityMode:     "恒定质量 CRF",
+		QualityValue:    "23",
+		OutputNaming:    "timestamp",
+		OutputContainer: "mp4",
 	}
 }
 
-// defaultConfigPath 返回默认配置文件路径（用户配置目录）。
+// defaultConfigPath 返回默认配置文件路径：
+// Windows 保存到当前目录的 .\config.json，其余平台保存到用户配置目录。
 func defaultConfigPath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(".", "config.json")
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = "."
