@@ -284,17 +284,19 @@ func (a *App) onAddFile() {
 
 // pickFileFromSystem 调用系统文件选择器添加文件；无可用的选择器时给出提示
 func (a *App) pickFileFromSystem() {
-	var path string
+	var paths []string
 	var err error
 	a.tviewApp.Suspend(func() {
-		path, err = runSystemFilePicker()
+		paths, err = runSystemFilePicker()
 	})
 	if err != nil {
 		a.showMessageDialog(a.s.Hint, a.filePickerFailMsg(err.Error()))
 		return
 	}
-	if path != "" {
-		a.addFilePath(path)
+	for _, p := range paths {
+		if p != "" {
+			a.addFilePath(p)
+		}
 	}
 }
 
@@ -333,23 +335,26 @@ func (a *App) updateFileBar() {
 
 // ---------- 系统文件选择器 ----------
 
-// runSystemFilePicker 调用系统文件选择器，返回选中的文件路径
-// 用户取消时返回空字符串；找不到可用的选择器时返回错误
-// Linux: zenity / qarma / kdialog / Xdialog；Windows: PowerShell OpenFileDialog
-func runSystemFilePicker() (string, error) {
+// runSystemFilePicker 调用系统文件选择器，返回选中的文件路径列表（可多选）。
+// 用户取消时返回 nil；找不到可用的选择器时返回错误。
+// Linux: zenity / qarma（--multiple，换行分隔）、kdialog（--getopenfilenames）、
+//
+//	Xdialog（单选）；Windows: PowerShell OpenFileDialog（Multiselect）。
+func runSystemFilePicker() ([]string, error) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		ps := `Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = '所有文件 (*.*)|*.*'; if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.FileName }`
+		ps := `Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Multiselect = $true; $f.Filter = '所有文件 (*.*)|*.*'; if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.FileNames -join [Environment]::NewLine }`
 		cmd = exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
 	default:
 		for _, tool := range []struct {
 			name string
 			args []string
 		}{
-			{"zenity", []string{"--file-selection", "--title=选择文件"}},
-			{"qarma", []string{"--file-selection", "--title=选择文件"}},
-			{"kdialog", []string{"--getopenfilename", ".", "所有文件 (*)"}},
+			// --separator 传实际换行符，多选路径以换行分隔。
+			{"zenity", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
+			{"qarma", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
+			{"kdialog", []string{"--getopenfilenames", ".", "所有文件 (*)"}},
 			{"Xdialog", []string{"--fselect", ".", "20", "60"}},
 		} {
 			if p, err := exec.LookPath(tool.name); err == nil {
@@ -359,14 +364,21 @@ func runSystemFilePicker() (string, error) {
 		}
 	}
 	if cmd == nil {
-		return "", errors.New("未找到可用的系统文件选择器（zenity/kdialog 等）")
+		return nil, errors.New("未找到可用的系统文件选择器（zenity/kdialog 等）")
 	}
 	out, err := cmd.Output()
 	if err != nil {
 		// 非零退出（如用户取消）视为取消
-		return "", nil
+		return nil, nil
 	}
-	return strings.TrimSpace(string(out)), nil
+	// 多选路径以换行分隔。
+	var paths []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			paths = append(paths, line)
+		}
+	}
+	return paths, nil
 }
 
 // ---------- ffprobe 文件信息 ----------
