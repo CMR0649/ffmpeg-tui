@@ -38,6 +38,7 @@ type Strings struct {
 	WavSync                                                      string
 	// 设置页
 	SettingsTitle, OutputOption, Suffix, ExportCfg, LoadCfg, SetDefaultCfg, FFmpegPath, Language, About string
+	ParallelTasks                                                                                       string
 	NamingTimestamp, NamingSuffix, NamingNone                                                           string
 	FFmpegPathDefault                                                                                   string
 	LangZh, LangEn                                                                                      string
@@ -45,6 +46,8 @@ type Strings struct {
 	TasksTitle, TaskAdd, TaskStart, TaskClear      string
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
+	// 任务进度（frame= 行解析）
+	FrameFPS, FrameBitrate, FrameSpeed string
 	// 预设页
 	PresetsTitle                                           string
 	SavePreset, SavePresetTitle                            string
@@ -98,6 +101,7 @@ var zh = &Strings{
 	Unspecified:   "未指定",
 	WavSync:       "位深度",
 	SettingsTitle: " 设置 ",
+	ParallelTasks: "并行任务数",
 	OutputOption:  "输出选项", Suffix: "指定后缀",
 	ExportCfg: "导出配置（JSON）", LoadCfg: "加载配置", SetDefaultCfg: "保存为默认配置",
 	FFmpegPath: "FFmpeg 路径", Language: "语言", About: "关于",
@@ -110,8 +114,9 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
-	PresetsTitle:  " 预设 ",
-	SavePreset:    "[保存预设]", SavePresetTitle: "保存预设",
+	FrameFPS:      "已处理帧", FrameBitrate: "比特率", FrameSpeed: "速率",
+	PresetsTitle: " 预设 ",
+	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
 	SearchPreset:          "搜索预设",
 	SavePresetFailed:      "无法保存预设：\n%s",
@@ -169,6 +174,7 @@ var en = &Strings{
 	Unspecified:   "Unspecified",
 	WavSync:       "Bit depth",
 	SettingsTitle: " Settings ",
+	ParallelTasks: "Parallel tasks",
 	OutputOption:  "Output naming", Suffix: "Suffix",
 	ExportCfg: "Export config (JSON)", LoadCfg: "Load config", SetDefaultCfg: "Save as default config",
 	FFmpegPath: "FFmpeg path", Language: "Language", About: "About",
@@ -181,8 +187,9 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
-	PresetsTitle:  " Presets ",
-	SavePreset:    "[Save preset]", SavePresetTitle: "Save preset",
+	FrameFPS:      "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
+	PresetsTitle: " Presets ",
+	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",
 	SearchPreset:          "Search preset",
 	SavePresetFailed:      "Cannot save preset:\n%s",

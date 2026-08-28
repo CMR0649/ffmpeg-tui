@@ -2,12 +2,14 @@ package ui
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/rivo/tview"
 )
@@ -23,10 +25,27 @@ type Task struct {
 	hasVideo bool
 	hasAudio bool
 	index    int
+	// frame= 行解析出的实时数据
+	frames, bitrate, speed string
 }
 
-// timeRe 匹配 ffmpeg 进度输出中的 time=HH:MM:SS.xx
-var timeRe = regexp.MustCompile(`time=(\d+):(\d+):(\d+\.?\d*)`)
+// frameRe 匹配 ffmpeg 进度输出中以 frame= 开头的行，提取 fps/bitrate/speed
+var frameRe = regexp.MustCompile(`frame=\s*\S+\s+fps=\s*(\S+).*?bitrate=\s*(\S+).*?speed=\s*(\S+)`)
+
+// scanProgress 进度输出以 \r 分隔（ffmpeg 在同一行用回车覆盖），
+// 既按 \r 也按 \n 分行
+func scanProgress(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
+		return i + 1, data[:i], nil
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
 
 // addTasksFromFiles 把文件页的文件列表生成为转码任务
 func (a *App) addTasksFromFiles() {
@@ -68,7 +87,7 @@ func (a *App) taskSecondaryText(t *Task) string {
 	case "done":
 		return a.s.TaskDone + " · 100%"
 	case "running":
-		return fmt.Sprintf("%s · %.0f%%", a.s.TaskRunning, t.Progress)
+		return a.taskProgressText(t)
 	case "failed":
 		if t.ErrMsg != "" {
 			return a.s.TaskFailed + "：" + t.ErrMsg
@@ -79,6 +98,25 @@ func (a *App) taskSecondaryText(t *Task) string {
 	}
 }
 
+// taskProgressText 转码中的实时数据显示：仅接受以 frame= 开头的行，
+// 展示 fps/bitrate/speed；中文用对应汉字段名，英文用原文
+func (a *App) taskProgressText(t *Task) string {
+	if t.frames == "" && t.bitrate == "" && t.speed == "" {
+		return a.s.TaskRunning
+	}
+	var parts []string
+	if t.frames != "" {
+		parts = append(parts, a.s.FrameFPS+"="+t.frames)
+	}
+	if t.bitrate != "" {
+		parts = append(parts, a.s.FrameBitrate+"="+t.bitrate)
+	}
+	if t.speed != "" {
+		parts = append(parts, a.s.FrameSpeed+"="+t.speed)
+	}
+	return strings.Join(parts, "  ")
+}
+
 // updateTask 更新单个任务在列表中的显示
 func (a *App) updateTask(t *Task) {
 	a.tviewApp.QueueUpdateDraw(func() {
@@ -86,26 +124,39 @@ func (a *App) updateTask(t *Task) {
 	})
 }
 
-// startTasks 串行执行所有等待中的任务
+// startTasks 并行执行所有等待中的任务（并行数为配置值）
 func (a *App) startTasks() {
+	n := a.cfg.ParallelTasks
+	if n < 1 {
+		n = 1
+	}
 	go func() {
+		sem := make(chan struct{}, n)
+		var wg sync.WaitGroup
 		for _, t := range a.tasks {
 			if t.Status != "waiting" {
 				continue
 			}
-			t.Status = "running"
-			a.updateTask(t)
-			err := a.runTask(t)
-			if err != nil {
-				t.Status = "failed"
-				t.Progress = 0
-				t.ErrMsg = err.Error()
-			} else {
-				t.Status = "done"
-				t.Progress = 100
-			}
-			a.updateTask(t)
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(t *Task) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				t.Status = "running"
+				a.updateTask(t)
+				err := a.runTask(t)
+				if err != nil {
+					t.Status = "failed"
+					t.Progress = 0
+					t.ErrMsg = err.Error()
+				} else {
+					t.Status = "done"
+					t.Progress = 100
+				}
+				a.updateTask(t)
+			}(t)
 		}
+		wg.Wait()
 	}()
 }
 
@@ -121,24 +172,20 @@ func (a *App) runTask(t *Task) error {
 	}
 	lastErr := ""
 	scanner := bufio.NewScanner(stderr)
+	scanner.Split(scanProgress)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if m := timeRe.FindStringSubmatch(line); m != nil && t.duration > 0 {
-			h, _ := strconv.Atoi(m[1])
-			min, _ := strconv.Atoi(m[2])
-			sec, _ := strconv.ParseFloat(m[3], 64)
-			elapsed := float64(h*3600+min*60) + sec
-			t.Progress = elapsed / t.duration * 100
-			if t.Progress > 100 {
-				t.Progress = 100
+		if strings.HasPrefix(line, "frame=") {
+			if m := frameRe.FindStringSubmatch(line); m != nil {
+				t.frames, t.bitrate, t.speed = m[1], m[2], m[3]
+				a.updateTask(t)
 			}
-			a.updateTask(t)
 		}
 		if strings.Contains(line, "Error") || strings.Contains(line, "error") {
-			if t := strings.TrimSpace(line); len(t) > 60 {
-				lastErr = t[:60]
+			if s := strings.TrimSpace(line); len(s) > 60 {
+				lastErr = s[:60]
 			} else {
-				lastErr = t
+				lastErr = s
 			}
 		}
 	}

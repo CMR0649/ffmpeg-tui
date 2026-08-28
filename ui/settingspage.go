@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/rivo/tview"
@@ -27,6 +28,7 @@ func (a *App) buildSettingsPage() tview.Primitive {
 func (a *App) refreshSettingsPage() {
 	l := a.settingsList
 	l.Clear()
+	l.AddItem(a.s.ParallelTasks, a.parallelTasksLabel(), 0, func() { a.editParallelTasks() })
 	l.AddItem(a.s.OutputOption, a.outputNamingLabel(), 0, func() { a.editOutputNaming() })
 	l.AddItem(a.s.Suffix, a.suffixLabel(), 0, func() { a.editSuffix() })
 	l.AddItem(a.s.FFmpegPath, a.ffmpegPathLabel(), 0, func() { a.editFFmpegPath() })
@@ -35,6 +37,27 @@ func (a *App) refreshSettingsPage() {
 	l.AddItem(a.s.LoadCfg, "JSON", 0, func() { a.loadConfig() })
 	l.AddItem(a.s.SetDefaultCfg, "", 0, func() { a.saveAsDefault() })
 	l.AddItem(a.s.About, "", 0, func() { a.showAboutDialog() }) // 最后一个选项
+}
+
+// editParallelTasks 并行任务数（正整数）
+func (a *App) editParallelTasks() {
+	a.showInputDialog(a.s.ParallelTasks, strconv.Itoa(a.cfg.ParallelTasks), func(text string) {
+		text = strings.TrimSpace(text)
+		n, err := strconv.Atoi(text)
+		if err != nil || n < 1 {
+			return
+		}
+		a.cfg.ParallelTasks = n
+		a.refreshSettingsPage()
+	})
+}
+
+// parallelTasksLabel 并行任务数的当前值显示
+func (a *App) parallelTasksLabel() string {
+	if a.cfg.ParallelTasks < 1 {
+		return "1"
+	}
+	return strconv.Itoa(a.cfg.ParallelTasks)
 }
 
 // editOutputNaming 输出选项（添加时间 / 指定后缀 / 不添加后缀）

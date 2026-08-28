@@ -37,8 +37,9 @@ type Config struct {
 	OutputContainer string `json:"output_container"` // 输出容器格式（如 mp4 / matroska）
 
 	// 运行环境
-	FFmpegPath string `json:"ffmpeg_path"` // ffmpeg 可执行文件路径（空 = 系统 PATH）
-	Lang       string `json:"lang"`        // 界面语言：zh / en / 空 = 按环境变量
+	FFmpegPath    string `json:"ffmpeg_path"`    // ffmpeg 可执行文件路径（空 = 系统 PATH）
+	Lang          string `json:"lang"`           // 界面语言：zh / en / 空 = 按环境变量
+	ParallelTasks int    `json:"parallel_tasks"` // 并行任务数
 }
 
 // DefaultConfig 返回默认配置。
@@ -48,6 +49,7 @@ func DefaultConfig() *Config {
 		QualityValue:    "23",
 		OutputNaming:    "timestamp",
 		OutputContainer: "mp4",
+		ParallelTasks:   1,
 	}
 }
 
