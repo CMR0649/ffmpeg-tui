@@ -17,6 +17,7 @@ func (a *App) outputNamingOptions() []string {
 // 配置管理 / 关于（最后一个选项）
 func (a *App) buildSettingsPage() tview.Primitive {
 	list := tview.NewList()
+	a.selectOnSecondClick(list)
 	list.SetBorder(true)
 	list.SetTitle(a.s.SettingsTitle)
 	a.settingsList = list

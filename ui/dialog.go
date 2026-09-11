@@ -120,6 +120,7 @@ func (a *App) buildOptionDialog() {
 	}
 
 	list := tview.NewList()
+	a.selectOnSecondClick(list)
 	for _, idx := range d.filtered {
 		idx := idx
 		list.AddItem(d.options[idx], "", 0, func() {
@@ -165,6 +166,7 @@ func (a *App) startOptionSearch() {
 	input := tview.NewInputField()
 	input.SetFieldWidth(0) // 填满弹窗内宽
 	list := tview.NewList()
+	a.selectOnSecondClick(list)
 
 	// applyFilter 按输入内容实时过滤并重建结果列表
 	applyFilter := func(text string) {
@@ -616,6 +618,30 @@ func openURL(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
+}
+
+// copyToClipboard 把文本复制到系统剪贴板
+func copyToClipboard(text string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("clip")
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	default:
+		if p, err := exec.LookPath("wl-copy"); err == nil {
+			cmd = exec.Command(p)
+		} else if p, err := exec.LookPath("xclip"); err == nil {
+			cmd = exec.Command(p, "-selection", "clipboard")
+		} else if p, err := exec.LookPath("xsel"); err == nil {
+			cmd = exec.Command(p, "-b", "-i")
+		}
+	}
+	if cmd == nil {
+		return
+	}
+	cmd.Stdin = strings.NewReader(text)
+	_ = cmd.Run()
 }
 
 // noMatchLabel 「无匹配项」按当前语言

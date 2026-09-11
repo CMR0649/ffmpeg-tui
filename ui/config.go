@@ -45,11 +45,10 @@ type Config struct {
 // DefaultConfig 返回默认配置。
 func DefaultConfig() *Config {
 	return &Config{
-		QualityMode:     "恒定质量 CRF",
-		QualityValue:    "23",
-		OutputNaming:    "timestamp",
-		OutputContainer: "mp4",
-		ParallelTasks:   1,
+		QualityMode:   "恒定质量 CRF",
+		QualityValue:  "23",
+		OutputNaming:  "timestamp",
+		ParallelTasks: 1,
 	}
 }
 

@@ -27,6 +27,7 @@ func (a *App) buildPage(index int) tview.Primitive {
 
 func (a *App) buildFilesPage() tview.Primitive {
 	a.filesList = tview.NewList()
+	a.selectOnSecondClick(a.filesList)
 
 	// 输出目录（选项）：默认与输入文件相同
 	a.outputDirBtn = tview.NewButton("")

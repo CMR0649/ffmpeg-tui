@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rivo/tview"
 )
@@ -74,8 +77,9 @@ func (a *App) addTasksFromFiles() {
 func (a *App) refreshTasks() {
 	a.taskList.Clear()
 	for _, t := range a.tasks {
+		t := t
 		t.index = a.taskList.GetItemCount()
-		a.taskList.AddItem(taskMainText(t), a.taskSecondaryText(t), 0, nil)
+		a.taskList.AddItem(taskMainText(t), a.taskSecondaryText(t), 0, func() { a.openTaskTarget(t) })
 	}
 }
 
@@ -86,14 +90,11 @@ func taskMainText(t *Task) string {
 func (a *App) taskSecondaryText(t *Task) string {
 	switch t.Status {
 	case "done":
-		return a.s.TaskDone + " · 100%"
+		return a.s.TaskDone + " · " + a.s.TaskSavedTo + t.Output
 	case "running":
 		return a.taskProgressText(t)
 	case "failed":
-		if t.ErrMsg != "" {
-			return a.s.TaskFailed + "：" + t.ErrMsg
-		}
-		return a.s.TaskFailed
+		return a.s.TaskFailed + " · " + a.s.TaskLogSavedTo + ffmpegLogPath()
 	default:
 		return a.s.TaskWaiting
 	}
@@ -164,9 +165,10 @@ func (a *App) startTasks() {
 	}()
 }
 
-// runTask 执行单个转码任务并解析进度；失败时返回 ffmpeg 的错误摘要
+// runTask 执行单个转码任务并解析进度；失败时写入 ffmpeg 日志并返回错误摘要
 func (a *App) runTask(t *Task) error {
-	cmd := exec.Command(a.ffmpegBin(), a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
+	args := a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)
+	cmd := exec.Command(a.ffmpegBin(), args...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -175,15 +177,20 @@ func (a *App) runTask(t *Task) error {
 		return err
 	}
 	lastErr := ""
+	var output strings.Builder
 	scanner := bufio.NewScanner(stderr)
 	scanner.Split(scanProgress)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "frame=") {
+			// 进度行：解析实时数据，但不写入日志
 			if m := frameRe.FindStringSubmatch(line); m != nil {
 				t.frameCount, t.fps, t.bitrate, t.speed = m[1], m[2], m[3], m[4]
 				a.updateTask(t)
 			}
+		} else {
+			output.WriteString(line)
+			output.WriteString("\n")
 		}
 		if strings.Contains(line, "Error") || strings.Contains(line, "error") {
 			if s := strings.TrimSpace(line); len(s) > 60 {
@@ -194,12 +201,72 @@ func (a *App) runTask(t *Task) error {
 		}
 	}
 	if err := cmd.Wait(); err != nil {
+		a.writeFFmpegLog(args, output.String())
 		if lastErr == "" {
 			return err
 		}
 		return fmt.Errorf("%s", lastErr)
 	}
 	return nil
+}
+
+// ffmpegLogPath ffmpeg 日志路径：Windows 为 .\ffmpeg.log，其余平台为缓存目录
+func ffmpegLogPath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(".", "ffmpeg.log")
+	}
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		dir = "."
+	}
+	return filepath.Join(dir, "ffmpeg-tui", "ffmpeg.log")
+}
+
+// writeFFmpegLog 以追加方式把失败任务的执行时间、命令与 ffmpeg 输出写入日志
+func (a *App) writeFFmpegLog(args []string, output string) {
+	path := ffmpegLogPath()
+	if dir := filepath.Dir(path); dir != "." {
+		_ = os.MkdirAll(dir, 0o755)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	var sb strings.Builder
+	sb.WriteString(time.Now().Format("2006-01-02 15:04:05"))
+	sb.WriteString("\n")
+	sb.WriteString(a.ffmpegBin() + " " + strings.Join(args, " "))
+	sb.WriteString("\n\n")
+	sb.WriteString(output)
+	sb.WriteString("\n------\n")
+	_, _ = f.WriteString(sb.String())
+}
+
+// openTaskTarget 打开任务的输出目录（已完成）或日志目录（失败）
+func (a *App) openTaskTarget(t *Task) {
+	switch t.Status {
+	case "done":
+		_ = openURL(filepath.Dir(t.Output))
+	case "failed":
+		_ = openURL(filepath.Dir(ffmpegLogPath()))
+	}
+}
+
+// taskCommandString 生成任务命令（输入以 input 代替，输出以 output.后缀 代替）
+func (a *App) taskCommandString(t *Task) string {
+	out := "output" + filepath.Ext(t.Output)
+	args := a.buildCommand("input", out, t.hasVideo, t.hasAudio)
+	return a.ffmpegBin() + " " + strings.Join(args, " ")
+}
+
+// copyTaskCommand 复制当前选中任务的命令到剪贴板
+func (a *App) copyTaskCommand() {
+	idx := a.taskList.GetCurrentItem()
+	if idx < 0 || idx >= len(a.tasks) {
+		return
+	}
+	copyToClipboard(a.taskCommandString(a.tasks[idx]))
 }
 
 // probeStreams 用 ffprobe 检测输入文件的视频/音频流
@@ -247,9 +314,11 @@ func (a *App) probeDuration(path string) float64 {
 	return 0
 }
 
-// buildTasksPage 构建「任务」页：任务列表 + 底部操作栏（[添加任务] [开始] [清空]）
+// buildTasksPage 构建「任务」页：任务列表 + 底部操作栏
+// （[添加任务] [开始] [清空] [复制命令]）
 func (a *App) buildTasksPage() tview.Primitive {
 	a.taskList = tview.NewList()
+	a.selectOnSecondClick(a.taskList)
 
 	addBtn := tview.NewButton(tview.Escape(a.s.TaskAdd))
 	addBtn.SetSelectedFunc(func() { a.addTasksFromFiles() })
@@ -257,9 +326,11 @@ func (a *App) buildTasksPage() tview.Primitive {
 	startBtn.SetSelectedFunc(func() { a.startTasks() })
 	clearBtn := tview.NewButton(tview.Escape(a.s.TaskClear))
 	clearBtn.SetSelectedFunc(func() { a.clearFinishedTasks() })
+	copyBtn := tview.NewButton(tview.Escape(a.s.TaskCopyCmd))
+	copyBtn.SetSelectedFunc(func() { a.copyTaskCommand() })
 
-	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn}
-	a.taskBarFocusables = []tview.Primitive{a.taskList, addBtn, startBtn, clearBtn}
+	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn, copyBtn}
+	a.taskBarFocusables = []tview.Primitive{a.taskList, addBtn, startBtn, clearBtn, copyBtn}
 
 	bar := tview.NewFlex()
 	bar.AddItem(addBtn, 0, 1, false)
@@ -267,6 +338,8 @@ func (a *App) buildTasksPage() tview.Primitive {
 	bar.AddItem(startBtn, 0, 1, false)
 	bar.AddItem(nil, 2, 0, false)
 	bar.AddItem(clearBtn, 0, 1, false)
+	bar.AddItem(nil, 2, 0, false)
+	bar.AddItem(copyBtn, 0, 1, false)
 	bar.AddItem(nil, 0, 1, false)
 
 	page := tview.NewFlex().SetDirection(tview.FlexRow)

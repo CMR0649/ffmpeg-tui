@@ -12,6 +12,7 @@ import (
 // 获取，选项以 FFmpeg 文档为准
 func (a *App) buildVideoPage() tview.Primitive {
 	list := tview.NewList()
+	a.selectOnSecondClick(list)
 	list.SetBorder(true)
 	list.SetTitle(a.s.VideoTitle)
 	a.videoList = list
@@ -123,8 +124,8 @@ func (a *App) videoDecoderLabel() string {
 	return a.cfg.VideoDecoder
 }
 
-// editVideoPreset 预设（视编码器而定）：优先使用 `ffmpeg -h encoder=名称`
-// 返回的 -preset 选项枚举值，无枚举值时回退到通用 x264 风格预设列表
+// editVideoPreset 预设（视编码器而定）：使用 `ffmpeg -h encoder=名称`
+// 返回的 -preset 选项枚举值，不做硬编码回退
 func (a *App) editVideoPreset() {
 	if !a.videoEncoderHasPreset() {
 		a.showMessageDialog(a.s.Preset, a.s.PresetUnsupported)
@@ -132,7 +133,8 @@ func (a *App) editVideoPreset() {
 	}
 	values := presetValuesFor(a.ffmpegBin(), a.cfg.VideoEncoder)
 	if len(values) == 0 {
-		values = x264Presets
+		a.showMessageDialog(a.s.Preset, a.s.PresetUnsupported)
+		return
 	}
 	a.showOptionDialog(a.s.Preset, values, func(i int) {
 		a.cfg.VideoPreset = values[i]

@@ -11,6 +11,7 @@ import (
 // buildPresetsPage 构建「预设」页：预设列表 + 底部操作栏（[保存预设] [打开预设文件夹]）
 func (a *App) buildPresetsPage() tview.Primitive {
 	a.presetList = tview.NewList()
+	a.selectOnSecondClick(a.presetList)
 
 	saveBtn := tview.NewButton(tview.Escape(a.s.SavePreset))
 	saveBtn.SetSelectedFunc(func() { a.showSavePresetDialog() })

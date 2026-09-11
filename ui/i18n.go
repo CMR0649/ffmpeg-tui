@@ -46,6 +46,8 @@ type Strings struct {
 	TasksTitle, TaskAdd, TaskStart, TaskClear      string
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
+	TaskCopyCmd                                    string
+	TaskSavedTo, TaskLogSavedTo                    string
 	// 任务进度（frame= 行解析）
 	FrameCount, FrameFPS, FrameBitrate, FrameSpeed string
 	// 预设页
@@ -114,7 +116,8 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
-	FrameCount:    "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
+	TaskCopyCmd:   "[复制命令]", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
+	FrameCount: "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
@@ -130,7 +133,7 @@ var zh = &Strings{
 	AboutTitle:            "关于",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
-	AboutLine3:            "by CMR0649",
+	AboutLine3:            "本软件是免费的自由软件",
 	AboutGitHub:           "GitHub",
 	FFmpegNotFound:        "未找到 %s，无法读取文件信息",
 	SaveCfgFailed:         "无法保存配置文件：\n%s",
@@ -187,7 +190,8 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
-	FrameCount:    "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
+	TaskCopyCmd:   "[Copy command]", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
+	FrameCount: "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",
@@ -203,7 +207,7 @@ var en = &Strings{
 	AboutTitle:            "About",
 	AboutLine1:            "FFmpeg-TUI",
 	AboutLine2:            "%s",
-	AboutLine3:            "by CMR0649",
+	AboutLine3:            "This software is free software.",
 	AboutGitHub:           "GitHub",
 	FFmpegNotFound:        "%s not found, cannot read file info",
 	SaveCfgFailed:         "Cannot save config file:\n%s",

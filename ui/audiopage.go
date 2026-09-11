@@ -11,6 +11,7 @@ import (
 // 编码器列表从 ffmpeg 命令动态加载
 func (a *App) buildAudioPage() tview.Primitive {
 	list := tview.NewList()
+	a.selectOnSecondClick(list)
 	list.SetBorder(true)
 	list.SetTitle(a.s.AudioTitle)
 	a.audioList = list
