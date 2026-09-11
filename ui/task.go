@@ -260,13 +260,26 @@ func (a *App) taskCommandString(t *Task) string {
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
 }
 
-// showTaskCommand 弹窗显示当前选中任务的命令
+// showTaskCommand 弹窗显示命令：有选中任务时按该任务生成，
+// 否则按当前配置生成（假定输入含视频与音频流）
 func (a *App) showTaskCommand() {
-	idx := a.taskList.GetCurrentItem()
-	if idx < 0 || idx >= len(a.tasks) {
-		return
+	cmd := a.currentCommandString()
+	if a.taskList != nil {
+		if idx := a.taskList.GetCurrentItem(); idx >= 0 && idx < len(a.tasks) {
+			cmd = a.taskCommandString(a.tasks[idx])
+		}
 	}
-	a.showMessageDialog(a.s.TaskCmdTitle, tview.Escape(a.taskCommandString(a.tasks[idx])))
+	a.showMessageDialog(a.s.TaskCmdTitle, tview.Escape(cmd))
+}
+
+// currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）
+func (a *App) currentCommandString() string {
+	out := "output"
+	if a.cfg.OutputContainer != "" {
+		out += "." + a.cfg.OutputContainer
+	}
+	args := a.buildCommand("input", out, true, true)
+	return a.ffmpegBin() + " " + strings.Join(args, " ")
 }
 
 // probeStreams 用 ffprobe 检测输入文件的视频/音频流
