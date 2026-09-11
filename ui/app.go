@@ -24,7 +24,6 @@ func (a *App) tabNames() []string {
 // App 组装整个 TUI 界面
 type App struct {
 	tviewApp  *tview.Application
-	screen    tcell.Screen // 当前 tcell 屏幕（用于 OSC 52 复制到剪贴板）
 	pages     *tview.Pages // 标签页内容
 	rootPages *tview.Pages // 根页面：main（主界面）+ dialog（模态对话框）
 	tabBar    *tview.TextView
@@ -85,8 +84,6 @@ func NewApp() *App {
 		tviewApp: tview.NewApplication(),
 		cfg:      DefaultConfig(),
 	}
-	// 记录 tcell 屏幕，用于通过 OSC 52 复制到系统剪贴板
-	a.tviewApp.SetAfterDrawFunc(func(screen tcell.Screen) { a.screen = screen })
 
 	// 加载默认配置（若存在，来自「指定默认配置」）
 	if p := defaultConfigPath(); fileExists(p) {

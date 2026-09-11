@@ -1,11 +1,9 @@
 package ui
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -620,56 +618,6 @@ func openURL(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
-}
-
-// copyToClipboard 把文本复制到系统剪贴板：
-// 先直接向终端发送 OSC 52（BEL 结尾，不依赖 tcell terminfo），
-// 再用 tcell 屏幕发送一次（ST 结尾），两种终止符与两条通道都覆盖；
-// 最后尝试外部剪贴板工具
-func (a *App) copyToClipboard(text string) {
-	writeOSC52(text)
-	if a.screen != nil {
-		a.screen.SetClipboard([]byte(text))
-	}
-	copyViaTool(text)
-}
-
-// writeOSC52 直接把 OSC 52 序列写入终端
-func writeOSC52(text string) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	seq := "\x1b]52;c;" + base64.StdEncoding.EncodeToString([]byte(text)) + "\x07"
-	if f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0); err == nil {
-		_, _ = f.WriteString(seq)
-		_ = f.Close()
-		return
-	}
-	_, _ = os.Stdout.WriteString(seq)
-}
-
-// copyViaTool 尝试用系统剪贴板工具复制
-func copyViaTool(text string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("clip")
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-	default:
-		if p, err := exec.LookPath("wl-copy"); err == nil {
-			cmd = exec.Command(p)
-		} else if p, err := exec.LookPath("xclip"); err == nil {
-			cmd = exec.Command(p, "-selection", "clipboard")
-		} else if p, err := exec.LookPath("xsel"); err == nil {
-			cmd = exec.Command(p, "-b", "-i")
-		}
-	}
-	if cmd == nil {
-		return
-	}
-	cmd.Stdin = strings.NewReader(text)
-	_ = cmd.Run()
 }
 
 // noMatchLabel 「无匹配项」按当前语言

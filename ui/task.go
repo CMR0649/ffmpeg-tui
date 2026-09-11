@@ -260,13 +260,13 @@ func (a *App) taskCommandString(t *Task) string {
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
 }
 
-// copyTaskCommand 复制当前选中任务的命令到剪贴板
-func (a *App) copyTaskCommand() {
+// showTaskCommand 弹窗显示当前选中任务的命令
+func (a *App) showTaskCommand() {
 	idx := a.taskList.GetCurrentItem()
 	if idx < 0 || idx >= len(a.tasks) {
 		return
 	}
-	a.copyToClipboard(a.taskCommandString(a.tasks[idx]))
+	a.showMessageDialog(a.s.TaskCmdTitle, tview.Escape(a.taskCommandString(a.tasks[idx])))
 }
 
 // probeStreams 用 ffprobe 检测输入文件的视频/音频流
@@ -326,11 +326,11 @@ func (a *App) buildTasksPage() tview.Primitive {
 	startBtn.SetSelectedFunc(func() { a.startTasks() })
 	clearBtn := tview.NewButton(tview.Escape(a.s.TaskClear))
 	clearBtn.SetSelectedFunc(func() { a.clearFinishedTasks() })
-	copyBtn := tview.NewButton(tview.Escape(a.s.TaskCopyCmd))
-	copyBtn.SetSelectedFunc(func() { a.copyTaskCommand() })
+	showBtn := tview.NewButton(tview.Escape(a.s.TaskShowCmd))
+	showBtn.SetSelectedFunc(func() { a.showTaskCommand() })
 
-	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn, copyBtn}
-	a.taskBarFocusables = []tview.Primitive{a.taskList, addBtn, startBtn, clearBtn, copyBtn}
+	a.taskBarButtons = []tview.Primitive{addBtn, startBtn, clearBtn, showBtn}
+	a.taskBarFocusables = []tview.Primitive{a.taskList, addBtn, startBtn, clearBtn, showBtn}
 
 	bar := tview.NewFlex()
 	bar.AddItem(addBtn, 0, 1, false)
@@ -339,7 +339,7 @@ func (a *App) buildTasksPage() tview.Primitive {
 	bar.AddItem(nil, 2, 0, false)
 	bar.AddItem(clearBtn, 0, 1, false)
 	bar.AddItem(nil, 2, 0, false)
-	bar.AddItem(copyBtn, 0, 1, false)
+	bar.AddItem(showBtn, 0, 1, false)
 	bar.AddItem(nil, 0, 1, false)
 
 	page := tview.NewFlex().SetDirection(tview.FlexRow)

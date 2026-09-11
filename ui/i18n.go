@@ -46,7 +46,7 @@ type Strings struct {
 	TasksTitle, TaskAdd, TaskStart, TaskClear      string
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
-	TaskCopyCmd                                    string
+	TaskShowCmd, TaskCmdTitle                      string
 	TaskSavedTo, TaskLogSavedTo                    string
 	// 任务进度（frame= 行解析）
 	FrameCount, FrameFPS, FrameBitrate, FrameSpeed string
@@ -116,7 +116,7 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
-	TaskCopyCmd:   "[复制命令]", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
+	TaskShowCmd:   "[显示命令]", TaskCmdTitle: "命令", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
 	FrameCount: "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
@@ -190,7 +190,7 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
-	TaskCopyCmd:   "[Copy command]", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
+	TaskShowCmd:   "[Show command]", TaskCmdTitle: "Command", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
 	FrameCount: "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
