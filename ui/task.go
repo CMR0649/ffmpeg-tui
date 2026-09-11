@@ -276,7 +276,7 @@ func (a *App) showTaskCommand() {
 func (a *App) currentCommandString() string {
 	out := "output"
 	if a.cfg.OutputContainer != "" {
-		out += "." + a.cfg.OutputContainer
+		out += "." + containerExt(a.cfg.OutputContainer)
 	}
 	args := a.buildCommand("input", out, true, true)
 	return a.ffmpegBin() + " " + strings.Join(args, " ")

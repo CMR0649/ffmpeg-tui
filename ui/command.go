@@ -93,6 +93,28 @@ func cbrBufsize(bitrate string) string {
 	return strconv.Itoa(n * 2)
 }
 
+// containerExt 输出容器格式名 → 文件扩展名。
+// 仅列出格式名与常用后缀不一致的项，其余直接用格式名。
+func containerExt(format string) string {
+	switch format {
+	case "matroska":
+		return "mkv"
+	case "mpegts":
+		return "ts"
+	case "mpeg", "mpegvideo", "mpeg1video", "mpeg2video":
+		return "mpg"
+	case "asf":
+		return "wmv"
+	case "adts":
+		return "aac"
+	case "hls":
+		return "m3u8"
+	case "dash":
+		return "mpd"
+	}
+	return format
+}
+
 // outputPath 根据输出目录（$file 规则）与输出命名规则生成输出路径
 // 输入文件在不同目录时分别输出到与之对应的目录
 func (a *App) outputPath(input string) string {
@@ -100,7 +122,7 @@ func (a *App) outputPath(input string) string {
 	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
 	ext := ""
 	if a.cfg.OutputContainer != "" {
-		ext = "." + a.cfg.OutputContainer
+		ext = "." + containerExt(a.cfg.OutputContainer)
 	}
 	name := base + ext
 	switch a.cfg.OutputNaming {
