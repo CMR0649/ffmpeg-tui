@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -620,8 +622,33 @@ func openURL(url string) error {
 	return cmd.Start()
 }
 
-// copyToClipboard 把文本复制到系统剪贴板
-func copyToClipboard(text string) {
+// copyToClipboard 把文本复制到系统剪贴板：
+// 优先通过终端 OSC 52 发送（tcell 屏幕），并同时尝试外部剪贴板工具兜底
+func (a *App) copyToClipboard(text string) {
+	if a.screen != nil {
+		a.screen.SetClipboard([]byte(text))
+	} else {
+		writeOSC52(text)
+	}
+	copyViaTool(text)
+}
+
+// writeOSC52 直接把 OSC 52 序列写入终端（无 tcell 屏幕时的兜底）
+func writeOSC52(text string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	seq := "\x1b]52;c;" + base64.StdEncoding.EncodeToString([]byte(text)) + "\x07"
+	if f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0); err == nil {
+		_, _ = f.WriteString(seq)
+		_ = f.Close()
+		return
+	}
+	_, _ = os.Stderr.WriteString(seq)
+}
+
+// copyViaTool 尝试用系统剪贴板工具复制
+func copyViaTool(text string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":

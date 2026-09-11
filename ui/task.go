@@ -266,7 +266,7 @@ func (a *App) copyTaskCommand() {
 	if idx < 0 || idx >= len(a.tasks) {
 		return
 	}
-	copyToClipboard(a.taskCommandString(a.tasks[idx]))
+	a.copyToClipboard(a.taskCommandString(a.tasks[idx]))
 }
 
 // probeStreams 用 ffprobe 检测输入文件的视频/音频流
