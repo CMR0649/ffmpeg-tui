@@ -623,17 +623,18 @@ func openURL(url string) error {
 }
 
 // copyToClipboard 把文本复制到系统剪贴板：
-// 优先通过终端 OSC 52 发送（tcell 屏幕），并同时尝试外部剪贴板工具兜底
+// 先直接向终端发送 OSC 52（BEL 结尾，不依赖 tcell terminfo），
+// 再用 tcell 屏幕发送一次（ST 结尾），两种终止符与两条通道都覆盖；
+// 最后尝试外部剪贴板工具
 func (a *App) copyToClipboard(text string) {
+	writeOSC52(text)
 	if a.screen != nil {
 		a.screen.SetClipboard([]byte(text))
-	} else {
-		writeOSC52(text)
 	}
 	copyViaTool(text)
 }
 
-// writeOSC52 直接把 OSC 52 序列写入终端（无 tcell 屏幕时的兜底）
+// writeOSC52 直接把 OSC 52 序列写入终端
 func writeOSC52(text string) {
 	if runtime.GOOS == "windows" {
 		return
@@ -644,7 +645,7 @@ func writeOSC52(text string) {
 		_ = f.Close()
 		return
 	}
-	_, _ = os.Stderr.WriteString(seq)
+	_, _ = os.Stdout.WriteString(seq)
 }
 
 // copyViaTool 尝试用系统剪贴板工具复制
