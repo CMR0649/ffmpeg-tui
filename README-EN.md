@@ -6,9 +6,6 @@
 
 A TUI for FFmpeg
 
-> [!TIP]
-> If you are a Windows user, I recommend using [FFmpegFreeUI](https://github.com/Lake1059/FFmpegFreeUI) instead.
-
 ## Build
 Install Go (>=1.24.0)  
 Run build.sh (Windows users should run build.bat)
@@ -29,4 +26,4 @@ In general, just double-click the executable file. If it doesn't run, execute it
 | `Delete` | File page: remove the currently selected file |
 | `Enter` | Activate button / confirm dialog (confirm within input fields) |
 | `Esc` | Close dialog; exit if no dialog is open |
-| `Q` / `Ctrl+C` | Exit |
+| `Q` / `Esc` | Exit |

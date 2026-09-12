@@ -3,9 +3,6 @@
 
 一个用于 FFmpeg 的 TUI
 
-> [!TIP]
-> 如果你是Windows用户，我更推荐你使用[FFmpegFreeUI](https://github.com/Lake1059/FFmpegFreeUI)
-
 ## 构建
 安装go（>=1.24.0）  
 运行build.sh（Windows需运行build.bat）
@@ -26,4 +23,4 @@
 | `Delete` | 文件页：移除当前选中的文件|
 | `Enter` | 激活按钮 / 确认对话框（输入框内确认） |
 | `Esc` | 关闭对话框；无对话框时退出 |
-| `Q` / `Ctrl+C` | 退出 |
+| `Q` / `Esc` | 退出 |
