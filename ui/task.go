@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rivo/tview"
+	"golang.org/x/term"
 )
 
 // Task 一个转码任务
@@ -260,7 +261,7 @@ func (a *App) taskCommandString(t *Task) string {
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
 }
 
-// showTaskCommand 切换到命令显示页：有选中任务时按该任务生成，
+// showTaskCommand 在终端中以 CLI 形式显示命令：有选中任务时按该任务生成，
 // 否则按当前配置生成（假定输入含视频与音频流）
 func (a *App) showTaskCommand() {
 	cmd := a.currentCommandString()
@@ -269,7 +270,34 @@ func (a *App) showTaskCommand() {
 			cmd = a.taskCommandString(a.tasks[idx])
 		}
 	}
-	a.showCommand(cmd)
+	showCommandInTerminal(a.tviewApp, a.s.CmdLabel, cmd, a.s.CmdReturnHint)
+}
+
+// showCommandInTerminal 暂停 TUI，在终端中输出命令，按键后返回 TUI
+func showCommandInTerminal(app *tview.Application, label, cmd, hint string) {
+	app.Suspend(func() {
+		fmt.Fprintln(os.Stdout, label)
+		fmt.Fprintln(os.Stdout, cmd)
+		fmt.Fprintln(os.Stdout, hint)
+		waitAnyKey()
+	})
+}
+
+// waitAnyKey 等待一次按键（回车/空格/任意键）
+func waitAnyKey() {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+		return
+	}
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+		return
+	}
+	defer func() { _ = term.Restore(fd, oldState) }()
+	buf := make([]byte, 1)
+	_, _ = os.Stdin.Read(buf)
 }
 
 // currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）
