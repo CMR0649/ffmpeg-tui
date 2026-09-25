@@ -29,19 +29,25 @@ func (a *App) refreshAudioPage() {
 	l.AddItem(a.s.BitDepth, a.bitDepthLabel(), 0, func() { a.editBitDepth() })
 }
 
-// editAudioEncoder 编码器（默认复制流），列表动态加载
+// editAudioEncoder 编码器（默认复制流，可禁用），列表动态加载
 func (a *App) editAudioEncoder() {
 	loadCodecLists(a.ffmpegBin())
-	labels := make([]string, 0, len(audioEncoders)+1)
+	labels := make([]string, 0, len(audioEncoders)+2)
 	labels = append(labels, a.copyStreamLabel())
+	labels = append(labels, a.s.Disable)
 	labels = append(labels, audioEncoders...)
 	a.showOptionDialog(a.s.AudioEncoder, labels, func(i int) {
-		if i == 0 {
+		switch i {
+		case 0:
 			a.cfg.AudioEncoder = ""
 			a.refreshAudioPage()
 			return
+		case 1:
+			a.cfg.AudioEncoder = encoderDisabled
+			a.refreshAudioPage()
+			return
 		}
-		a.cfg.AudioEncoder = audioEncoders[i-1]
+		a.cfg.AudioEncoder = audioEncoders[i-2]
 		if strings.HasPrefix(a.cfg.AudioEncoder, "pcm_") && a.cfg.BitDepth == "" {
 			a.cfg.BitDepth = "16" // WAV/PCM 默认 16-bit，与编码器名称同步
 		}
@@ -51,6 +57,9 @@ func (a *App) editAudioEncoder() {
 
 // audioEncoderLabel 编码器项的当前值显示
 func (a *App) audioEncoderLabel() string {
+	if a.cfg.AudioEncoder == encoderDisabled {
+		return a.s.Disable
+	}
 	if a.cfg.AudioEncoder == "" {
 		return a.copyStreamLabel()
 	}

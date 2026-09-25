@@ -35,6 +35,7 @@ type Strings struct {
 	// 音频页
 	AudioTitle, AudioEncoder, AudioBitrate, SampleRate, BitDepth string
 	Unspecified                                                  string
+	Disable                                                      string
 	WavSync                                                      string
 	// 设置页
 	SettingsTitle, OutputOption, Suffix, ExportCfg, LoadCfg, SetDefaultCfg, FFmpegPath, Language, About string
@@ -46,7 +47,7 @@ type Strings struct {
 	TasksTitle, TaskAdd, TaskStart, TaskClear      string
 	TaskWaiting, TaskRunning, TaskDone, TaskFailed string
 	NoFilesToTask                                  string
-	TaskShowCmd, TaskCmdTitle                      string
+	TaskShowCmd, CmdLabel, CmdReturnHint           string
 	TaskSavedTo, TaskLogSavedTo                    string
 	// 任务进度（frame= 行解析）
 	FrameCount, FrameFPS, FrameBitrate, FrameSpeed string
@@ -101,6 +102,7 @@ var zh = &Strings{
 	AudioTitle:         " 音频 — 编码选项 ",
 	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
 	Unspecified:   "未指定",
+	Disable:       "禁用",
 	WavSync:       "位深度",
 	SettingsTitle: " 设置 ",
 	ParallelTasks: "并行任务数",
@@ -116,7 +118,7 @@ var zh = &Strings{
 	TaskAdd:    "[添加任务]", TaskStart: "[开始]", TaskClear: "[清空]",
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
-	TaskShowCmd:   "[显示命令]", TaskCmdTitle: "命令", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
+	TaskShowCmd:   "[显示命令]", CmdLabel: "命令:", CmdReturnHint: "按下回车或空格返回...", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
 	FrameCount: "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
@@ -175,6 +177,7 @@ var en = &Strings{
 	AudioTitle:         " Audio — Encoding Options ",
 	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
 	Unspecified:   "Unspecified",
+	Disable:       "Disable",
 	WavSync:       "Bit depth",
 	SettingsTitle: " Settings ",
 	ParallelTasks: "Parallel tasks",
@@ -190,7 +193,7 @@ var en = &Strings{
 	TaskAdd:    "[Add tasks]", TaskStart: "[Start]", TaskClear: "[Clear]",
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
-	TaskShowCmd:   "[Show command]", TaskCmdTitle: "Command", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
+	TaskShowCmd:   "[Show command]", CmdLabel: "Command:", CmdReturnHint: "Press Enter or Space to return...", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
 	FrameCount: "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",

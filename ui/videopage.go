@@ -44,20 +44,27 @@ func (a *App) refreshVideoPage() {
 
 // ---------- 编码 ----------
 
-// editVideoEncoder 从动态加载的视频编码器列表中选择编码器（默认复制流）
+// editVideoEncoder 从动态加载的视频编码器列表中选择编码器（默认复制流，可禁用）
 func (a *App) editVideoEncoder() {
 	loadCodecLists(a.ffmpegBin())
-	labels := make([]string, 0, len(videoEncoders)+1)
+	labels := make([]string, 0, len(videoEncoders)+2)
 	labels = append(labels, a.copyStreamLabel())
+	labels = append(labels, a.s.Disable)
 	labels = append(labels, videoEncoders...)
 	a.showOptionDialog(a.s.Encoder, labels, func(i int) {
-		if i == 0 {
+		switch i {
+		case 0:
 			a.cfg.VideoEncoder = ""
 			a.cfg.VideoPreset = ""
 			a.refreshVideoPage()
 			return
+		case 1:
+			a.cfg.VideoEncoder = encoderDisabled
+			a.cfg.VideoPreset = ""
+			a.refreshVideoPage()
+			return
 		}
-		name := videoEncoders[i-1]
+		name := videoEncoders[i-2]
 		a.cfg.VideoEncoder = name
 		info := probeEncoder(a.ffmpegBin(), name)
 		if info.HasOption("preset") {
@@ -79,6 +86,9 @@ func (a *App) copyStreamLabel() string {
 
 // videoEncoderLabel 编码器项的当前值显示（含 ffmpeg -h 获取的描述）
 func (a *App) videoEncoderLabel() string {
+	if a.cfg.VideoEncoder == encoderDisabled {
+		return a.s.Disable
+	}
 	if a.cfg.VideoEncoder == "" {
 		return a.copyStreamLabel()
 	}

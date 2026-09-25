@@ -16,6 +16,9 @@ const Version = "beta1.5"
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
 var tabKeys = []string{"files", "video", "audio", "tasks", "presets", "settings"}
 
+// cmdPageKey 命令显示页的稳定 key
+const cmdPageKey = "cmdview"
+
 // tabNames 按当前语言返回标签页显示名
 func (a *App) tabNames() []string {
 	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabPresets, a.s.TabSettings}
@@ -68,6 +71,10 @@ type App struct {
 	dialogFocusIndex int
 	dialogButtons    []tview.Primitive // 对话框内横向按钮组：[确定] [取消]（左右键切换）
 	optDialog        *optionDialog     // 选项对话框状态（支持 "/" 搜索过滤）
+
+	// 命令显示页状态
+	cmdView    *tview.TextView
+	showingCmd bool
 }
 
 // NewApp 创建并初始化应用
@@ -106,6 +113,13 @@ func NewApp() *App {
 		}
 		a.pages.AddPage(key, content, true, i == 0)
 	}
+	// 命令显示页（[显示命令] 切换到此处）
+	a.cmdView = tview.NewTextView()
+	a.cmdView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	a.cmdView.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+	a.pages.AddPage(cmdPageKey, a.cmdView, true, false)
 
 	// 文本区显式样式：白字黑底
 	// 若不设置，tview 会用 ColorDefault 背景填充文本区，浅色主题终端下
@@ -277,6 +291,23 @@ func (a *App) switchTab(i int) {
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
+// showCommand 切换到命令显示页
+func (a *App) showCommand(cmd string) {
+	a.cmdView.SetText(a.s.CmdLabel + "\n" + cmd + "\n" + a.s.CmdReturnHint)
+	a.pages.SwitchToPage(cmdPageKey)
+	a.showingCmd = true
+	a.tviewApp.SetFocus(a.cmdView)
+	a.renderTabBar()
+}
+
+// hideCommand 从命令显示页返回当前标签页
+func (a *App) hideCommand() {
+	a.showingCmd = false
+	a.pages.SwitchToPage(tabKeys[a.current])
+	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
+	a.renderTabBar()
+}
+
 // renderFooter 刷新底部按键提示（按页面显示）
 func (a *App) renderFooter() {
 	var t string
@@ -298,7 +329,25 @@ func (a *App) renderFooter() {
 // handleKeys 处理全局按键：A/D 切换标签页，Q/Esc/Ctrl+C 退出
 // 方向键由当前页面的列表组件自行处理（用于选择项目）
 // 对话框打开时：Esc 关闭对话框，其余按键交给对话框组件
+// 命令显示页：回车/空格/Esc 返回
 func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
+	if a.showingCmd && !a.dialogOpen {
+		if event.Key() == tcell.KeyCtrlC {
+			a.tviewApp.Stop()
+			return nil
+		}
+		switch event.Key() {
+		case tcell.KeyEnter, tcell.KeyEscape:
+			a.hideCommand()
+			return nil
+		case tcell.KeyRune:
+			if event.Rune() == ' ' {
+				a.hideCommand()
+				return nil
+			}
+		}
+		return nil // 命令显示页中忽略其他按键
+	}
 	switch event.Key() {
 	case tcell.KeyCtrlC:
 		a.tviewApp.Stop()

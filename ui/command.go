@@ -7,11 +7,14 @@ import (
 	"time"
 )
 
+// encoderDisabled 编码器「禁用」的存储值
+const encoderDisabled = "none"
+
 // buildCommand 根据当前配置与输入文件的流类型生成 ffmpeg 转码命令参数
-// 选项映射以 FFmpeg 官方文档为准：-c:v/-c:a、-preset、-crf、-q:v、
+// 选项映射以 FFmpeg 官方文档为准：-map、-c:v/-c:a、-preset、-crf、-q:v、
 // -b:v/-maxrate/-minrate/-bufsize、-s、-r、-b:a、-ar、-sample_fmt
-// 输入没有视频/音频流时，不添加对应的 -c:v/-c:a（否则 -c:v copy 会在
-// 纯音频输入上报错）
+// 输入文件参数后始终加 -map 0:v:0? / -map 0:a:0?（? 表示流不存在时忽略）；
+// 编码器为「禁用」时不映射对应流
 func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []string {
 	args := []string{"-y"}
 	if a.cfg.VideoDecoder != "" {
@@ -19,8 +22,17 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 	}
 	args = append(args, "-i", input)
 
+	videoDisabled := a.cfg.VideoEncoder == encoderDisabled
+	audioDisabled := a.cfg.AudioEncoder == encoderDisabled
+	if !videoDisabled {
+		args = append(args, "-map", "0:v:0?")
+	}
+	if !audioDisabled {
+		args = append(args, "-map", "0:a:0?")
+	}
+
 	// 视频
-	if hasVideo {
+	if hasVideo && !videoDisabled {
 		if a.cfg.VideoEncoder != "" {
 			args = append(args, "-c:v", a.cfg.VideoEncoder)
 			if a.cfg.VideoPreset != "" {
@@ -59,7 +71,7 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 	}
 
 	// 音频
-	if hasAudio {
+	if hasAudio && !audioDisabled {
 		if a.cfg.AudioEncoder != "" {
 			args = append(args, "-c:a", a.cfg.AudioEncoder)
 			if a.cfg.AudioBitrate != "" {

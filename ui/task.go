@@ -260,7 +260,7 @@ func (a *App) taskCommandString(t *Task) string {
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
 }
 
-// showTaskCommand 弹窗显示命令：有选中任务时按该任务生成，
+// showTaskCommand 切换到命令显示页：有选中任务时按该任务生成，
 // 否则按当前配置生成（假定输入含视频与音频流）
 func (a *App) showTaskCommand() {
 	cmd := a.currentCommandString()
@@ -269,7 +269,7 @@ func (a *App) showTaskCommand() {
 			cmd = a.taskCommandString(a.tasks[idx])
 		}
 	}
-	a.showMessageDialog(a.s.TaskCmdTitle, tview.Escape(cmd))
+	a.showCommand(cmd)
 }
 
 // currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）
