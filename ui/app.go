@@ -11,7 +11,7 @@ import (
 )
 
 // Version 是当前版本号
-const Version = "beta1.5"
+const Version = "beta1.6"
 
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
 var tabKeys = []string{"files", "video", "audio", "tasks", "presets", "settings"}
