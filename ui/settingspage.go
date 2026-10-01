@@ -37,7 +37,21 @@ func (a *App) refreshSettingsPage() {
 	l.AddItem(a.s.ExportCfg, "JSON", 0, func() { a.exportConfig() })
 	l.AddItem(a.s.LoadCfg, "JSON", 0, func() { a.loadConfig() })
 	l.AddItem(a.s.SetDefaultCfg, "", 0, func() { a.saveAsDefault() })
+	l.AddItem(a.s.RestoreDefaults, "", 0, func() { a.restoreDefaults() })
 	l.AddItem(a.s.About, "", 0, func() { a.showAboutDialog() }) // 最后一个选项
+}
+
+// restoreDefaults 恢复默认配置（保留当前语言）
+func (a *App) restoreDefaults() {
+	a.showConfirmDialog(a.s.RestoreDefaultsConfirm, func() {
+		lang := a.lang
+		*a.cfg = *DefaultConfig()
+		a.cfg.Lang = lang
+		resetCodecCaches()
+		loadCodecLists(a.ffmpegBin())
+		loadFormats(a.ffmpegBin())
+		a.refreshAllUI()
+	})
 }
 
 // editParallelTasks 并行任务数（正整数）

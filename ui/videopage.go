@@ -95,12 +95,12 @@ func (a *App) editVideoEncoder() {
 	})
 }
 
-// copyStreamLabel 「复制流（默认）」按当前语言
+// copyStreamLabel 「复制流」按当前语言
 func (a *App) copyStreamLabel() string {
 	if a.lang == "en" {
-		return "Copy stream (default)"
+		return "Copy stream"
 	}
-	return "复制流（默认）"
+	return "复制流"
 }
 
 // videoEncoderLabel 编码器项的当前值显示（含 ffmpeg -h 获取的描述）
@@ -197,10 +197,11 @@ func (a *App) videoPresetLabel() string {
 
 // ---------- 质量 ----------
 
-// qualityModeOptions 码率控制方式：直接显示参数，返回显示文本与存储键
+// qualityModeOptions 码率控制方式：直接显示参数（"-" = 不指定），
+// 返回显示文本与存储键
 func (a *App) qualityModeOptions() ([]string, []string) {
-	return []string{"-crf", "-qp", "-cq", "-qp_i -qp_p", "-global_quality"},
-		[]string{"crf", "qp", "cq", "qp_i_p", "global_quality"}
+	return []string{"-", "-crf", "-qp", "-cq", "-qp_i -qp_p", "-global_quality"},
+		[]string{"", "crf", "qp", "cq", "qp_i_p", "global_quality"}
 }
 
 // editQualityMode 码率控制方式（直接显示参数）
@@ -215,6 +216,8 @@ func (a *App) editQualityMode() {
 // qualityModeLabel 控制方式项的当前值显示（兼容旧配置存 vbr/cbr/中文值）
 func (a *App) qualityModeLabel() string {
 	switch qualityModeKey(a.cfg.QualityMode) {
+	case "":
+		return "-"
 	case "qp":
 		return "-qp"
 	case "cq":
@@ -227,41 +230,16 @@ func (a *App) qualityModeLabel() string {
 	return "-crf"
 }
 
-// videoEncoderHasQuality 报告当前编码器是否支持设置质量值
-func (a *App) videoEncoderHasQuality() bool {
-	if a.cfg.VideoEncoder == "" {
-		return false
-	}
-	info := probeEncoder(a.ffmpegBin(), a.cfg.VideoEncoder)
-	for _, opt := range []string{"crf", "qp", "cq", "qp_i", "qp_p", "global_quality", "qscale", "q:v"} {
-		if info.HasOption(opt) {
-			return true
-		}
-	}
-	return false
-}
-
-// editQualityValue 质量值：编码器不支持时提示
+// editQualityValue 质量值输入（所有控制方式均可设置）
 func (a *App) editQualityValue() {
-	if !a.videoEncoderHasQuality() {
-		a.showMessageDialog(a.s.Quality, a.s.QualityUnsupportedMsg)
-		return
-	}
 	a.showInputDialog(a.s.Quality, a.cfg.QualityValue, func(text string) {
-		text = strings.TrimSpace(text)
-		if text == "" {
-			return
-		}
-		a.cfg.QualityValue = text
+		a.cfg.QualityValue = strings.TrimSpace(text)
 		a.refreshVideoPage()
 	})
 }
 
 // qualityValueLabel 质量项的当前值显示
 func (a *App) qualityValueLabel() string {
-	if !a.videoEncoderHasQuality() {
-		return a.s.QualityUnsupported
-	}
 	if a.cfg.QualityValue == "" {
 		return "—"
 	}

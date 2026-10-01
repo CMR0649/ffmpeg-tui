@@ -40,6 +40,8 @@ type Strings struct {
 	WavSync                                                      string
 	// 设置页
 	SettingsTitle, OutputOption, Suffix, ExportCfg, LoadCfg, SetDefaultCfg, FFmpegPath, Language, About string
+	RestoreDefaults                                                                                     string
+	RestoreDefaultsConfirm                                                                              string
 	ParallelTasks                                                                                       string
 	NamingTimestamp, NamingSuffix, NamingNone                                                           string
 	FFmpegPathDefault                                                                                   string
@@ -105,12 +107,13 @@ var zh = &Strings{
 	CustomParams:       "自定义参数",
 	AudioTitle:         " 音频 — 编码选项 ",
 	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
-	Unspecified:   "未指定",
-	Disable:       "禁用",
-	WavSync:       "位深度",
-	SettingsTitle: " 设置 ",
-	ParallelTasks: "并行任务数",
-	OutputOption:  "输出选项", Suffix: "指定后缀",
+	Unspecified:     "未指定",
+	Disable:         "禁用",
+	WavSync:         "位深度",
+	SettingsTitle:   " 设置 ",
+	ParallelTasks:   "并行任务数",
+	RestoreDefaults: "恢复默认配置", RestoreDefaultsConfirm: "确定恢复默认配置吗？",
+	OutputOption: "输出选项", Suffix: "指定后缀",
 	ExportCfg: "导出配置（JSON）", LoadCfg: "加载配置", SetDefaultCfg: "保存为默认配置",
 	FFmpegPath: "FFmpeg 路径", Language: "语言", About: "关于",
 	NamingTimestamp:   "添加时间（默认）",
@@ -183,12 +186,13 @@ var en = &Strings{
 	CustomParams:       "Custom parameters",
 	AudioTitle:         " Audio — Encoding Options ",
 	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
-	Unspecified:   "Unspecified",
-	Disable:       "Disable",
-	WavSync:       "Bit depth",
-	SettingsTitle: " Settings ",
-	ParallelTasks: "Parallel tasks",
-	OutputOption:  "Output naming", Suffix: "Suffix",
+	Unspecified:     "Unspecified",
+	Disable:         "Disable",
+	WavSync:         "Bit depth",
+	SettingsTitle:   " Settings ",
+	ParallelTasks:   "Parallel tasks",
+	RestoreDefaults: "Restore defaults", RestoreDefaultsConfirm: "Restore the default configuration?",
+	OutputOption: "Output naming", Suffix: "Suffix",
 	ExportCfg: "Export config (JSON)", LoadCfg: "Load config", SetDefaultCfg: "Save as default config",
 	FFmpegPath: "FFmpeg path", Language: "Language", About: "About",
 	NamingTimestamp:   "Add timestamp (default)",

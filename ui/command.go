@@ -81,12 +81,15 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 	return args
 }
 
-// qualityArgs 码率控制方式对应的参数：质量值紧跟其参数（-qp_i -qp_p 为两个参数）
+// qualityArgs 码率控制方式对应的参数：质量值紧跟其参数（-qp_i -qp_p 为两个参数）；
+// 方式为空（"-"，不指定）时不输出任何参数
 func qualityArgs(mode, value string) []string {
 	if value == "" {
 		return nil
 	}
 	switch qualityModeKey(mode) {
+	case "":
+		return nil
 	case "qp":
 		return []string{"-qp", value}
 	case "cq":
@@ -143,17 +146,14 @@ func (a *App) outputPath(input string) string {
 	return filepath.Join(dir, name)
 }
 
-// qualityModeKey 归一化码率控制方式：兼容旧配置的 vbr/cbr 与中文值
+// qualityModeKey 归一化码率控制方式：空/"-" 表示不指定；
+// 兼容旧配置的 vbr/cbr 与中文值（回退为 crf）
 func qualityModeKey(mode string) string {
 	switch mode {
-	case "qp":
-		return "qp"
-	case "cq":
-		return "cq"
-	case "qp_i_p":
-		return "qp_i_p"
-	case "global_quality":
-		return "global_quality"
+	case "", "-":
+		return ""
+	case "crf", "qp", "cq", "qp_i_p", "global_quality":
+		return mode
 	}
 	return "crf"
 }

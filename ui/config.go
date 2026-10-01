@@ -43,13 +43,14 @@ type Config struct {
 	ParallelTasks int    `json:"parallel_tasks"` // 并行任务数
 }
 
-// DefaultConfig 返回默认配置。
+// DefaultConfig 返回默认配置：mkv 容器、libx264/aac 编码，其余参数不指定。
 func DefaultConfig() *Config {
 	return &Config{
-		QualityMode:   "恒定质量 CRF",
-		QualityValue:  "23",
-		OutputNaming:  "timestamp",
-		ParallelTasks: 1,
+		VideoEncoder:    "libx264",
+		AudioEncoder:    "aac",
+		OutputContainer: "matroska",
+		OutputNaming:    "timestamp",
+		ParallelTasks:   1,
 	}
 }
 
