@@ -29,6 +29,7 @@ type Strings struct {
 	ParseInfoFailed string
 	// 视频页
 	VideoTitle, Encoder, Decoder, Preset, QualityMode, Quality, BitrateBase, BitrateMax, BitrateMin, Resolution, FPS string
+	CustomParams                                                                                                     string
 	// 质量模式（键 → 显示）
 	QualityCRF, QualityVBR, QualityCBR string
 	QualityUnsupported                 string
@@ -55,6 +56,8 @@ type Strings struct {
 	PresetsTitle                                           string
 	SavePreset, SavePresetTitle                            string
 	OpenPresetDir, SavePresetName                          string
+	AddCustomCmd, CustomCmdInput                           string
+	LoadedPreset, CustomCmdActive                          string
 	SearchPreset                                           string
 	SavePresetFailed, LoadPresetFailed, DeletePresetFailed string
 	// 输出容器
@@ -99,6 +102,7 @@ var zh = &Strings{
 	Resolution: "分辨率", FPS: "帧率",
 	QualityCRF: "恒定质量 CRF", QualityVBR: "可变码率 VBR", QualityCBR: "固定码率 CBR",
 	QualityUnsupported: "编码器不支持",
+	CustomParams:       "自定义参数",
 	AudioTitle:         " 音频 — 编码选项 ",
 	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
 	Unspecified:   "未指定",
@@ -123,6 +127,8 @@ var zh = &Strings{
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
+	AddCustomCmd: "[添加自定义命令]", CustomCmdInput: "自定义命令",
+	LoadedPreset: "已加载预设%s", CustomCmdActive: "已加载自定义命令，是否禁用",
 	SearchPreset:          "搜索预设",
 	SavePresetFailed:      "无法保存预设：\n%s",
 	LoadPresetFailed:      "无法加载预设：\n%s",
@@ -174,6 +180,7 @@ var en = &Strings{
 	Resolution: "Resolution", FPS: "Frame rate",
 	QualityCRF: "Constant Quality CRF", QualityVBR: "Variable Bitrate VBR", QualityCBR: "Constant Bitrate CBR",
 	QualityUnsupported: "Not supported by encoder",
+	CustomParams:       "Custom parameters",
 	AudioTitle:         " Audio — Encoding Options ",
 	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
 	Unspecified:   "Unspecified",
@@ -198,6 +205,8 @@ var en = &Strings{
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",
+	AddCustomCmd: "[Add custom command]", CustomCmdInput: "Custom command",
+	LoadedPreset: "Preset loaded: %s", CustomCmdActive: "A custom command is loaded. Disable it?",
 	SearchPreset:          "Search preset",
 	SavePresetFailed:      "Cannot save preset:\n%s",
 	LoadPresetFailed:      "Cannot load preset:\n%s",

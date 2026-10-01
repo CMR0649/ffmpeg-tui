@@ -168,8 +168,8 @@ func (a *App) startTasks() {
 
 // runTask 执行单个转码任务并解析进度；失败时写入 ffmpeg 日志并返回错误摘要
 func (a *App) runTask(t *Task) error {
-	args := a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)
-	cmd := exec.Command(a.ffmpegBin(), args...)
+	argv := a.resolvedArgs(t)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ func (a *App) runTask(t *Task) error {
 		}
 	}
 	if err := cmd.Wait(); err != nil {
-		a.writeFFmpegLog(args, output.String())
+		a.writeFFmpegLog(argv, output.String())
 		if lastErr == "" {
 			return err
 		}
@@ -224,7 +224,7 @@ func ffmpegLogPath() string {
 }
 
 // writeFFmpegLog 以追加方式把失败任务的执行时间、命令与 ffmpeg 输出写入日志
-func (a *App) writeFFmpegLog(args []string, output string) {
+func (a *App) writeFFmpegLog(argv []string, output string) {
 	path := ffmpegLogPath()
 	if dir := filepath.Dir(path); dir != "." {
 		_ = os.MkdirAll(dir, 0o755)
@@ -237,7 +237,7 @@ func (a *App) writeFFmpegLog(args []string, output string) {
 	var sb strings.Builder
 	sb.WriteString(time.Now().Format("2006-01-02 15:04:05"))
 	sb.WriteString("\n")
-	sb.WriteString(a.ffmpegBin() + " " + strings.Join(args, " "))
+	sb.WriteString(strings.Join(argv, " "))
 	sb.WriteString("\n\n")
 	sb.WriteString(output)
 	sb.WriteString("\n------\n")
@@ -254,8 +254,73 @@ func (a *App) openTaskTarget(t *Task) {
 	}
 }
 
-// taskCommandString 生成任务命令（输入以 input 代替，输出以 output.后缀 代替）
+// customCmdRe 匹配自定义命令中的 output.*/output.<后缀> 与 input 占位符
+var customCmdRe = regexp.MustCompile(`output\.(\*|[A-Za-z0-9]+)|input`)
+
+// resolveCustomCommand 替换自定义命令中的占位符：
+// output.* → 输出文件；input → 输入文件；ffmpeg → 设置指定的 ffmpeg（若有）
+func (a *App) resolveCustomCommand(tpl, input, output string) string {
+	s := customCmdRe.ReplaceAllStringFunc(tpl, func(m string) string {
+		if strings.HasPrefix(m, "output") {
+			return output
+		}
+		return input
+	})
+	if a.cfg.FFmpegPath != "" {
+		s = strings.ReplaceAll(s, "ffmpeg", a.ffmpegBin())
+	}
+	return s
+}
+
+// splitCommandLine 按空白拆分命令行，支持单/双引号
+func splitCommandLine(s string) []string {
+	var args []string
+	var cur strings.Builder
+	var quote rune
+	inToken := false
+	for _, r := range s {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			} else {
+				cur.WriteRune(r)
+			}
+		case r == '\'' || r == '"':
+			quote = r
+			inToken = true
+		case r == ' ' || r == '\t' || r == '\n':
+			if inToken {
+				args = append(args, cur.String())
+				cur.Reset()
+				inToken = false
+			}
+		default:
+			cur.WriteRune(r)
+			inToken = true
+		}
+	}
+	if inToken {
+		args = append(args, cur.String())
+	}
+	return args
+}
+
+// resolvedArgs 返回任务要执行的完整 argv（自定义命令优先）
+func (a *App) resolvedArgs(t *Task) []string {
+	if a.customCmd != "" {
+		return splitCommandLine(a.resolveCustomCommand(a.customCmd, t.Input, t.Output))
+	}
+	return append([]string{a.ffmpegBin()},
+		a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
+}
+
+// taskCommandString 生成任务命令（输入以 input 代替，输出以 output.后缀 代替）；
+// 自定义命令直接显示其模板
 func (a *App) taskCommandString(t *Task) string {
+	if a.customCmd != "" {
+		return a.customCmd
+	}
 	out := "output" + filepath.Ext(t.Output)
 	args := a.buildCommand("input", out, t.hasVideo, t.hasAudio)
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
@@ -300,8 +365,12 @@ func waitAnyKey() {
 	_, _ = os.Stdin.Read(buf)
 }
 
-// currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）
+// currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）；
+// 已加载自定义命令时显示其模板
 func (a *App) currentCommandString() string {
+	if a.customCmd != "" {
+		return a.customCmd
+	}
 	out := "output"
 	if a.cfg.OutputContainer != "" {
 		out += "." + containerExt(a.cfg.OutputContainer)

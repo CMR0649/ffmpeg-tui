@@ -170,6 +170,9 @@ func (a *App) refreshAllUI() {
 	if a.fileContainerLabel != nil {
 		a.fileContainerLabel.SetText(fmt.Sprintf(a.s.ContainerLabel, a.cfg.OutputContainer))
 	}
+	// 重建后恢复到当前标签页（否则 tview 会显示成错误的页面）
+	a.pages.SwitchToPage(tabKeys[a.current])
+	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 	a.renderTabBar()
 	a.renderFooter()
 }

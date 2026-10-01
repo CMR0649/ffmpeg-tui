@@ -40,6 +40,25 @@ func (a *App) refreshVideoPage() {
 	// 画面
 	l.AddItem(a.s.Resolution, a.resolutionLabel(), 0, func() { a.editResolution() })
 	l.AddItem(a.s.FPS, a.fpsLabel(), 0, func() { a.editFPS() })
+
+	// 自定义参数（最后一个选项）
+	l.AddItem(a.s.CustomParams, a.customParamsLabel(), 0, func() { a.editCustomParams() })
+}
+
+// editCustomParams 自定义参数：追加到生成的视频参数末尾
+func (a *App) editCustomParams() {
+	a.showInputDialog(a.s.CustomParams, a.cfg.CustomParams, func(text string) {
+		a.cfg.CustomParams = strings.TrimSpace(text)
+		a.refreshVideoPage()
+	})
+}
+
+// customParamsLabel 自定义参数项的当前值显示
+func (a *App) customParamsLabel() string {
+	if a.cfg.CustomParams == "" {
+		return "—"
+	}
+	return a.cfg.CustomParams
 }
 
 // ---------- 编码 ----------
@@ -178,14 +197,13 @@ func (a *App) videoPresetLabel() string {
 
 // ---------- 质量 ----------
 
-// qualityModeOptions 控制方式选项（中文+缩写，按当前语言），返回
-// 显示文本与存储键
+// qualityModeOptions 码率控制方式：直接显示参数，返回显示文本与存储键
 func (a *App) qualityModeOptions() ([]string, []string) {
-	return []string{a.s.QualityCRF, a.s.QualityVBR, a.s.QualityCBR},
-		[]string{"crf", "vbr", "cbr"}
+	return []string{"-crf", "-qp", "-cq", "-qp_i -qp_p", "-global_quality"},
+		[]string{"crf", "qp", "cq", "qp_i_p", "global_quality"}
 }
 
-// editQualityMode 控制方式（中文 + 缩写）
+// editQualityMode 码率控制方式（直接显示参数）
 func (a *App) editQualityMode() {
 	labels, keys := a.qualityModeOptions()
 	a.showOptionDialog(a.s.QualityMode, labels, func(i int) {
@@ -194,38 +212,39 @@ func (a *App) editQualityMode() {
 	})
 }
 
-// qualityModeLabel 控制方式项的当前值显示（兼容旧配置存中文值）
+// qualityModeLabel 控制方式项的当前值显示（兼容旧配置存 vbr/cbr/中文值）
 func (a *App) qualityModeLabel() string {
-	labels, _ := a.qualityModeOptions()
-	switch a.cfg.QualityMode {
-	case "crf", "恒定质量 CRF":
-		return labels[0]
-	case "vbr", "可变码率 VBR":
-		return labels[1]
-	case "cbr", "固定码率 CBR":
-		return labels[2]
+	switch qualityModeKey(a.cfg.QualityMode) {
+	case "qp":
+		return "-qp"
+	case "cq":
+		return "-cq"
+	case "qp_i_p":
+		return "-qp_i -qp_p"
+	case "global_quality":
+		return "-global_quality"
 	}
-	return labels[0]
+	return "-crf"
 }
 
-// videoEncoderHasQuality 报告当前编码器是否支持设置质量值（-crf / -qscale / -q:v / -cq）
+// videoEncoderHasQuality 报告当前编码器是否支持设置质量值
 func (a *App) videoEncoderHasQuality() bool {
 	if a.cfg.VideoEncoder == "" {
 		return false
 	}
 	info := probeEncoder(a.ffmpegBin(), a.cfg.VideoEncoder)
-	return info.HasOption("crf") || info.HasOption("qscale") || info.HasOption("q:v") || info.HasOption("cq")
+	for _, opt := range []string{"crf", "qp", "cq", "qp_i", "qp_p", "global_quality", "qscale", "q:v"} {
+		if info.HasOption(opt) {
+			return true
+		}
+	}
+	return false
 }
 
 // editQualityValue 质量值：编码器不支持时提示
 func (a *App) editQualityValue() {
 	if !a.videoEncoderHasQuality() {
 		a.showMessageDialog(a.s.Quality, a.s.QualityUnsupportedMsg)
-		return
-	}
-	// 质量值仅在恒定质量（CRF）模式下可设置。
-	if qualityModeKey(a.cfg.QualityMode) != "crf" {
-		a.showMessageDialog(a.s.Quality, a.s.QualityCRFOnlyMsg)
 		return
 	}
 	a.showInputDialog(a.s.Quality, a.cfg.QualityValue, func(text string) {
@@ -242,10 +261,6 @@ func (a *App) editQualityValue() {
 func (a *App) qualityValueLabel() string {
 	if !a.videoEncoderHasQuality() {
 		return a.s.QualityUnsupported
-	}
-	// 质量值仅在恒定质量（CRF）模式下有效，其他模式显示 "-"。
-	if qualityModeKey(a.cfg.QualityMode) != "crf" {
-		return "-"
 	}
 	if a.cfg.QualityValue == "" {
 		return "—"

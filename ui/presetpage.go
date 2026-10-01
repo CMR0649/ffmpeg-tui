@@ -8,21 +8,26 @@ import (
 	"github.com/rivo/tview"
 )
 
-// buildPresetsPage 构建「预设」页：预设列表 + 底部操作栏（[保存预设] [打开预设文件夹]）
+// buildPresetsPage 构建「预设」页：预设列表 + 底部操作栏
+// （[保存预设] [添加自定义命令] [打开预设文件夹]）
 func (a *App) buildPresetsPage() tview.Primitive {
 	a.presetList = tview.NewList()
 	a.selectOnSecondClick(a.presetList)
 
 	saveBtn := tview.NewButton(tview.Escape(a.s.SavePreset))
 	saveBtn.SetSelectedFunc(func() { a.showSavePresetDialog() })
+	cmdBtn := tview.NewButton(tview.Escape(a.s.AddCustomCmd))
+	cmdBtn.SetSelectedFunc(func() { a.showAddCustomCommandDialog() })
 	openBtn := tview.NewButton(tview.Escape(a.s.OpenPresetDir))
 	openBtn.SetSelectedFunc(func() { a.openPresetDir() })
 
-	a.presetBarButtons = []tview.Primitive{saveBtn, openBtn}
-	a.presetBarFocusables = []tview.Primitive{a.presetList, saveBtn, openBtn}
+	a.presetBarButtons = []tview.Primitive{saveBtn, cmdBtn, openBtn}
+	a.presetBarFocusables = []tview.Primitive{a.presetList, saveBtn, cmdBtn, openBtn}
 
 	bar := tview.NewFlex()
 	bar.AddItem(saveBtn, 0, 1, false)
+	bar.AddItem(nil, 2, 0, false)
+	bar.AddItem(cmdBtn, 0, 1, false)
 	bar.AddItem(nil, 2, 0, false)
 	bar.AddItem(openBtn, 0, 1, false)
 	bar.AddItem(nil, 0, 1, false)
@@ -52,11 +57,14 @@ func (a *App) refreshPresets() {
 	}
 }
 
-// presetSummary 预设的简要描述（编码器 + 容器）。
+// presetSummary 预设的简要描述（自定义命令 / 编码器 + 容器）。
 func (a *App) presetSummary(name string) string {
 	p, err := loadPresetFile(name)
 	if err != nil {
 		return ""
+	}
+	if p.CustomCommand != "" {
+		return p.CustomCommand
 	}
 	var parts []string
 	if p.VideoEncoder != "" {
@@ -71,7 +79,7 @@ func (a *App) presetSummary(name string) string {
 	return strings.Join(parts, " · ")
 }
 
-// loadPreset 应用选中的预设。
+// loadPreset 应用选中的预设，并提示已加载。
 func (a *App) loadPreset(name string) {
 	p, err := loadPresetFile(name)
 	if err != nil {
@@ -79,7 +87,9 @@ func (a *App) loadPreset(name string) {
 		return
 	}
 	p.applyTo(a.cfg)
+	a.customCmd = p.CustomCommand
 	a.refreshAllUI()
+	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadedPreset, name))
 }
 
 // deletePreset 删除选中的预设。
@@ -182,6 +192,28 @@ func (a *App) savePresetFromInput(input *tview.InputField) {
 		return
 	}
 	a.refreshPresets()
+}
+
+// showAddCustomCommandDialog 添加自定义命令：先输入命令，再输入预设名称。
+func (a *App) showAddCustomCommandDialog() {
+	a.showInputDialog(a.s.CustomCmdInput, "", func(cmd string) {
+		cmd = strings.TrimSpace(cmd)
+		if cmd == "" {
+			return
+		}
+		a.showInputDialog(a.s.SavePresetName, "", func(name string) {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				return
+			}
+			p := &Preset{CustomCommand: cmd}
+			if err := savePreset(name, p); err != nil {
+				a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SavePresetFailed, err.Error()))
+				return
+			}
+			a.refreshPresets()
+		})
+	})
 }
 
 // openPresetDir 用系统默认文件管理器打开预设文件夹。

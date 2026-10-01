@@ -58,6 +58,7 @@ type App struct {
 	cfg          *Config
 	lang         string // 当前语言：zh / en
 	s            *Strings
+	customCmd    string // 已加载的自定义命令模板（空 = 未加载）
 	videoList    *tview.List
 	audioList    *tview.List
 	settingsList *tview.List
@@ -275,6 +276,27 @@ func (a *App) switchTab(i int) {
 	a.renderTabBar()
 	a.renderFooter()
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
+	// 已加载自定义命令时，进入视频/音频页提示是否禁用
+	if a.current == 1 || a.current == 2 {
+		a.promptDisableCustomCmd(nil)
+	}
+}
+
+// promptDisableCustomCmd 已加载自定义命令时提示是否禁用（确定则禁用），
+// 之后继续执行 then
+func (a *App) promptDisableCustomCmd(then func()) {
+	if a.customCmd == "" {
+		if then != nil {
+			then()
+		}
+		return
+	}
+	a.showConfirmDialog(a.s.CustomCmdActive, func() {
+		a.customCmd = ""
+		if then != nil {
+			then()
+		}
+	})
 }
 
 // renderFooter 刷新底部按键提示（按页面显示）

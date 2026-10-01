@@ -25,6 +25,7 @@ type Preset struct {
 	VideoWidth   string `json:"video_width"`
 	VideoHeight  string `json:"video_height"`
 	VideoFPS     string `json:"video_fps"`
+	CustomParams string `json:"custom_params"`
 
 	// 音频
 	AudioEncoder string `json:"audio_encoder"`
@@ -34,6 +35,9 @@ type Preset struct {
 
 	// 输出容器
 	OutputContainer string `json:"output_container"`
+
+	// 自定义命令（有此字段时按该命令执行，占位符见 resolveCustomCommand）
+	CustomCommand string `json:"custom_command"`
 }
 
 // fromConfig 从配置填充预设。
@@ -49,6 +53,7 @@ func (p *Preset) fromConfig(c *Config) {
 	p.VideoWidth = c.VideoWidth
 	p.VideoHeight = c.VideoHeight
 	p.VideoFPS = c.VideoFPS
+	p.CustomParams = c.CustomParams
 	p.AudioEncoder = c.AudioEncoder
 	p.AudioBitrate = c.AudioBitrate
 	p.SampleRate = c.SampleRate
@@ -69,6 +74,7 @@ func (p *Preset) applyTo(c *Config) {
 	c.VideoWidth = p.VideoWidth
 	c.VideoHeight = p.VideoHeight
 	c.VideoFPS = p.VideoFPS
+	c.CustomParams = p.CustomParams
 	c.AudioEncoder = p.AudioEncoder
 	c.AudioBitrate = p.AudioBitrate
 	c.SampleRate = p.SampleRate

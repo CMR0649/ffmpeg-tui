@@ -15,14 +15,15 @@ type Config struct {
 	VideoDecoder string `json:"video_decoder"` // 解码器
 	VideoEncoder string `json:"video_encoder"` // 编码器
 	VideoPreset  string `json:"video_preset"`  // 视编码器而定
-	QualityMode  string `json:"quality_mode"`  // 恒定质量 CRF / 可变码率 VBR / 固定码率 CBR
-	QualityValue string `json:"quality_value"` // 质量值（如 CRF 23）
+	QualityMode  string `json:"quality_mode"`  // 码率控制方式（参数，如 -crf）
+	QualityValue string `json:"quality_value"` // 质量值
 	VideoBitrate string `json:"video_bitrate"` // 基础比特率，kbps
 	VideoMaxrate string `json:"video_maxrate"` // 最高比特率，kbps
 	VideoMinrate string `json:"video_minrate"` // 最低比特率，kbps
 	VideoWidth   string `json:"video_width"`   // 分辨率宽度
 	VideoHeight  string `json:"video_height"`  // 分辨率高度
 	VideoFPS     string `json:"video_fps"`     // 帧率
+	CustomParams string `json:"custom_params"` // 自定义参数（追加到视频参数末尾）
 
 	// 音频
 	AudioEncoder string `json:"audio_encoder"` // 编码器

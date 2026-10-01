@@ -2,7 +2,6 @@ package ui
 
 import (
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -11,10 +10,9 @@ import (
 const encoderDisabled = "none"
 
 // buildCommand 根据当前配置与输入文件的流类型生成 ffmpeg 转码命令参数
-// 选项映射以 FFmpeg 官方文档为准：-map、-c:v/-c:a、-preset、-crf、-q:v、
-// -b:v/-maxrate/-minrate/-bufsize、-s、-r、-b:a、-ar、-sample_fmt
-// 输入文件参数后始终加 -map 0:v:0? / -map 0:a:0?（? 表示流不存在时忽略）；
-// 编码器为「禁用」时不映射对应流
+// 选项映射以 FFmpeg 官方文档为准：-c:v/-c:a、-preset、码率控制参数（-crf 等）、
+// -b:v/-maxrate/-minrate、-s、-r、-b:a、-ar、-sample_fmt
+// 编码器为「禁用」时不输出对应流
 func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []string {
 	args := []string{"-y"}
 	if a.cfg.VideoDecoder != "" {
@@ -24,12 +22,6 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 
 	videoDisabled := a.cfg.VideoEncoder == encoderDisabled
 	audioDisabled := a.cfg.AudioEncoder == encoderDisabled
-	if !videoDisabled {
-		args = append(args, "-map", "0:v:0?")
-	}
-	if !audioDisabled {
-		args = append(args, "-map", "0:a:0?")
-	}
 
 	// 视频
 	if hasVideo && !videoDisabled {
@@ -38,25 +30,14 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 			if a.cfg.VideoPreset != "" {
 				args = append(args, "-preset", a.cfg.VideoPreset)
 			}
-			switch qualityModeKey(a.cfg.QualityMode) {
-			case "crf":
-				if a.cfg.QualityValue != "" {
-					args = append(args, "-crf", a.cfg.QualityValue)
-				}
-			case "vbr":
-				// 质量值仅在恒定质量（CRF）模式可用，VBR 由比特率控制。
-			case "cbr":
-				if b := a.cfg.VideoBitrate; b != "" {
-					args = append(args, "-b:v", b+"k", "-minrate", b+"k", "-maxrate", b+"k", "-bufsize", cbrBufsize(b)+"k")
-				}
-			}
-			if a.cfg.VideoBitrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
+			args = append(args, qualityArgs(a.cfg.QualityMode, a.cfg.QualityValue)...)
+			if a.cfg.VideoBitrate != "" {
 				args = append(args, "-b:v", a.cfg.VideoBitrate+"k")
 			}
-			if a.cfg.VideoMaxrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
+			if a.cfg.VideoMaxrate != "" {
 				args = append(args, "-maxrate", a.cfg.VideoMaxrate+"k")
 			}
-			if a.cfg.VideoMinrate != "" && qualityModeKey(a.cfg.QualityMode) != "cbr" {
+			if a.cfg.VideoMinrate != "" {
 				args = append(args, "-minrate", a.cfg.VideoMinrate+"k")
 			}
 			if a.cfg.VideoWidth != "" && a.cfg.VideoHeight != "" {
@@ -67,6 +48,10 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 			}
 		} else {
 			args = append(args, "-c:v", "copy") // 默认复制流
+		}
+		// 自定义参数：追加到生成的视频参数末尾
+		if a.cfg.CustomParams != "" {
+			args = append(args, strings.Fields(a.cfg.CustomParams)...)
 		}
 	}
 
@@ -96,13 +81,23 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 	return args
 }
 
-// cbrBufsize CBR 模式的 -bufsize（取基础比特率的 2 倍）
-func cbrBufsize(bitrate string) string {
-	n, err := strconv.Atoi(bitrate)
-	if err != nil || n <= 0 {
-		return "0"
+// qualityArgs 码率控制方式对应的参数：质量值紧跟其参数（-qp_i -qp_p 为两个参数）
+func qualityArgs(mode, value string) []string {
+	if value == "" {
+		return nil
 	}
-	return strconv.Itoa(n * 2)
+	switch qualityModeKey(mode) {
+	case "qp":
+		return []string{"-qp", value}
+	case "cq":
+		return []string{"-cq", value}
+	case "qp_i_p":
+		return []string{"-qp_i", value, "-qp_p", value}
+	case "global_quality":
+		return []string{"-global_quality", value}
+	default:
+		return []string{"-crf", value}
+	}
 }
 
 // containerExt 输出容器格式名 → 文件扩展名。
@@ -148,15 +143,17 @@ func (a *App) outputPath(input string) string {
 	return filepath.Join(dir, name)
 }
 
-// qualityModeKey 归一化控制方式：兼容新键（crf/vbr/cbr）与旧配置的中文值
+// qualityModeKey 归一化码率控制方式：兼容旧配置的 vbr/cbr 与中文值
 func qualityModeKey(mode string) string {
 	switch mode {
-	case "crf", "恒定质量 CRF":
-		return "crf"
-	case "vbr", "可变码率 VBR":
-		return "vbr"
-	case "cbr", "固定码率 CBR":
-		return "cbr"
+	case "qp":
+		return "qp"
+	case "cq":
+		return "cq"
+	case "qp_i_p":
+		return "qp_i_p"
+	case "global_quality":
+		return "global_quality"
 	}
 	return "crf"
 }

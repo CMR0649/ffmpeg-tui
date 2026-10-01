@@ -144,12 +144,13 @@ func (a *App) buildOptionDialog() {
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
-	height := len(d.filtered) + 6
+	// 每个选项占两行（次要文本行），据此计算弹窗高度
+	height := len(d.filtered)*2 + 6
 	if height < 10 {
 		height = 10
 	}
-	if height > 18 {
-		height = 18
+	if height > 20 {
+		height = 20
 	}
 	a.dialogButtons = []tview.Primitive{ok, cancel}
 	a.showDialog(a.buildDialogBox(d.title, list, 56, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
@@ -266,6 +267,32 @@ func (a *App) showMessageDialog(title, text string) {
 	a.showDialog(a.buildDialogBox(title, tv, 60, 8, ok), []tview.Primitive{ok}, ok)
 }
 
+// showConfirmDialog 显示带 [确定] [取消] 的确认对话框；确定后调用 onOK
+func (a *App) showConfirmDialog(text string, onOK func()) {
+	tv := tview.NewTextView()
+	tv.SetText(text)
+	tv.SetTextAlign(tview.AlignLeft)
+	tv.SetDynamicColors(true)
+	tv.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	tv.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.PrimaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+
+	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
+	ok.SetSelectedFunc(func() {
+		a.closeDialog()
+		if onOK != nil {
+			onOK()
+		}
+	})
+	cancel.SetSelectedFunc(func() { a.closeDialog() })
+
+	a.dialogButtons = []tview.Primitive{ok, cancel}
+	a.showDialog(a.buildDialogBox(a.s.Hint, tv, 56, 9, ok, cancel),
+		[]tview.Primitive{tv, ok, cancel}, ok)
+}
+
 // ---------- 文件页操作 ----------
 
 func (a *App) onAddFile() {
@@ -317,6 +344,12 @@ func (a *App) addFilePath(path string) {
 }
 
 func (a *App) onSetContainer() {
+	// 已加载自定义命令时先提示是否禁用，再打开容器选择
+	a.promptDisableCustomCmd(a.openContainerDialog)
+}
+
+// openContainerDialog 打开输出容器选择对话框
+func (a *App) openContainerDialog() {
 	loadFormats(a.ffmpegBin())
 	if len(outputFormats) == 0 {
 		a.showMessageDialog(a.s.ContainerTitle, a.s.ContainerFailed)
