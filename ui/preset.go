@@ -82,7 +82,7 @@ func (p *Preset) applyTo(c *Config) {
 	c.OutputContainer = p.OutputContainer
 }
 
-// presetDir 预设存放目录：Windows 为 .\preset，其余平台为用户配置目录下的 preset。
+// presetDir 预设保存目录：Windows 为 .\preset，其余平台为用户配置目录下的 preset。
 func presetDir() string {
 	if runtime.GOOS == "windows" {
 		return filepath.Join(".", "preset")
@@ -92,6 +92,88 @@ func presetDir() string {
 		dir = "."
 	}
 	return filepath.Join(dir, "ffmpeg-tui", "preset")
+}
+
+// presetDirs 预设读取目录列表（按优先级）：当前目录的 preset 在前，
+// 随后是用户配置目录下的 preset（Windows 仅当前目录）。
+func presetDirs() []string {
+	dirs := []string{filepath.Join(".", "preset")}
+	if runtime.GOOS == "windows" {
+		return dirs
+	}
+	if d, err := os.UserConfigDir(); err == nil {
+		dirs = append(dirs, filepath.Join(d, "ffmpeg-tui", "preset"))
+	}
+	return dirs
+}
+
+// presetDirLabel 预设目录的短标签（用于重名时的 [目录名]/ 前缀）
+func presetDirLabel(dir string) string {
+	base := filepath.Base(dir)
+	parent := filepath.Base(filepath.Dir(dir))
+	if parent == "." || parent == string(filepath.Separator) || parent == "" {
+		return base
+	}
+	return parent + "/" + base
+}
+
+// presetEntry 一个预设条目：所在目录、名称与显示文本
+type presetEntry struct {
+	Dir   string
+	Name  string
+	Label string
+}
+
+// listPresetEntries 列出所有预设目录中的预设；同名预设同时显示，
+// 并用 [目录名]/ 前缀区分。
+func listPresetEntries() []presetEntry {
+	dirs := presetDirs()
+	namesByDir := make([][]string, len(dirs))
+	count := map[string]int{}
+	for i, dir := range dirs {
+		names, err := listPresetNamesIn(dir)
+		if err != nil {
+			names = nil
+		}
+		namesByDir[i] = names
+		for _, n := range names {
+			count[n]++
+		}
+	}
+	var entries []presetEntry
+	for i, dir := range dirs {
+		label := presetDirLabel(dir)
+		for _, n := range namesByDir[i] {
+			disp := n
+			if count[n] > 1 {
+				disp = "[" + label + "]/" + n
+			}
+			entries = append(entries, presetEntry{Dir: dir, Name: n, Label: disp})
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Label < entries[j].Label })
+	return entries
+}
+
+// listPresetNamesIn 返回指定目录中的预设名称列表（按名称排序）。
+func listPresetNamesIn(dir string) ([]string, error) {
+	items, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range items {
+		if e.IsDir() {
+			continue
+		}
+		base := e.Name()
+		if !strings.HasSuffix(base, ".json") {
+			continue
+		}
+		names = append(names, unescapeFilename(strings.TrimSuffix(base, ".json")))
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // filenameInvalidChar 报告字符是否不能出现在文件名中（含各平台非法字符与 %）。
@@ -148,9 +230,9 @@ func savePreset(name string, p *Preset) error {
 	return os.WriteFile(filepath.Join(dir, escapeFilename(name)+".json"), data, 0o644)
 }
 
-// loadPresetFile 按名称读取预设。
-func loadPresetFile(name string) (*Preset, error) {
-	data, err := os.ReadFile(filepath.Join(presetDir(), escapeFilename(name)+".json"))
+// loadPresetFileAt 从指定目录按名称读取预设。
+func loadPresetFileAt(dir, name string) (*Preset, error) {
+	data, err := os.ReadFile(filepath.Join(dir, escapeFilename(name)+".json"))
 	if err != nil {
 		return nil, err
 	}
@@ -161,28 +243,7 @@ func loadPresetFile(name string) (*Preset, error) {
 	return &p, nil
 }
 
-// deletePreset 按名称删除预设。
-func deletePreset(name string) error {
-	return os.Remove(filepath.Join(presetDir(), escapeFilename(name)+".json"))
-}
-
-// listPresets 返回预设名称列表（按名称排序）。
-func listPresets() ([]string, error) {
-	entries, err := os.ReadDir(presetDir())
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		base := e.Name()
-		if !strings.HasSuffix(base, ".json") {
-			continue
-		}
-		names = append(names, unescapeFilename(strings.TrimSuffix(base, ".json")))
-	}
-	sort.Strings(names)
-	return names, nil
+// deletePresetAt 从指定目录按名称删除预设。
+func deletePresetAt(dir, name string) error {
+	return os.Remove(filepath.Join(dir, escapeFilename(name)+".json"))
 }

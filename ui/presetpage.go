@@ -42,24 +42,21 @@ func (a *App) buildPresetsPage() tview.Primitive {
 	return page
 }
 
-// refreshPresets 从预设文件夹读取并重建预设列表（按名称排序）。
+// refreshPresets 从所有预设文件夹读取并重建预设列表（按显示名排序）。
 func (a *App) refreshPresets() {
 	a.presetList.Clear()
-	a.presetNames = nil
-	names, err := listPresets()
-	if err != nil {
-		return
-	}
-	a.presetNames = names
-	for _, name := range names {
-		name := name
-		a.presetList.AddItem(name, a.presetSummary(name), 0, func() { a.loadPreset(name) })
+	a.presetEntries = nil
+	entries := listPresetEntries()
+	a.presetEntries = entries
+	for _, e := range entries {
+		e := e
+		a.presetList.AddItem(tview.Escape(e.Label), tview.Escape(a.presetSummary(e.Dir, e.Name)), 0, func() { a.loadPreset(e) })
 	}
 }
 
 // presetSummary 预设的简要描述（自定义命令 / 编码器 + 容器）。
-func (a *App) presetSummary(name string) string {
-	p, err := loadPresetFile(name)
+func (a *App) presetSummary(dir, name string) string {
+	p, err := loadPresetFileAt(dir, name)
 	if err != nil {
 		return ""
 	}
@@ -80,8 +77,8 @@ func (a *App) presetSummary(name string) string {
 }
 
 // loadPreset 应用选中的预设，并提示已加载。
-func (a *App) loadPreset(name string) {
-	p, err := loadPresetFile(name)
+func (a *App) loadPreset(e presetEntry) {
+	p, err := loadPresetFileAt(e.Dir, e.Name)
 	if err != nil {
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadPresetFailed, err.Error()))
 		return
@@ -89,20 +86,20 @@ func (a *App) loadPreset(name string) {
 	p.applyTo(a.cfg)
 	a.customCmd = p.CustomCommand
 	a.refreshAllUI()
-	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadedPreset, name))
+	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadedPreset, e.Name))
 }
 
-// deletePreset 删除选中的预设。
+// deleteSelectedPreset 删除选中的预设。
 func (a *App) deleteSelectedPreset() {
 	if a.presetList.GetItemCount() == 0 {
 		return
 	}
 	idx := a.presetList.GetCurrentItem()
-	if idx < 0 || idx >= len(a.presetNames) {
+	if idx < 0 || idx >= len(a.presetEntries) {
 		return
 	}
-	name := a.presetNames[idx]
-	if err := deletePreset(name); err != nil {
+	e := a.presetEntries[idx]
+	if err := deletePresetAt(e.Dir, e.Name); err != nil {
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.DeletePresetFailed, err.Error()))
 		return
 	}
@@ -111,14 +108,18 @@ func (a *App) deleteSelectedPreset() {
 
 // searchPreset 打开预设搜索（按 "/" 直接进入搜索框 + 实时过滤列表）。
 func (a *App) searchPreset() {
-	names, err := listPresets()
-	if err != nil || len(names) == 0 {
+	entries := listPresetEntries()
+	if len(entries) == 0 {
 		return
+	}
+	labels := make([]string, len(entries))
+	for i, e := range entries {
+		labels[i] = tview.Escape(e.Label)
 	}
 	a.optDialog = &optionDialog{
 		title:   a.s.SearchPreset,
-		options: names,
-		confirm: func(i int) { a.loadPreset(names[i]) },
+		options: labels,
+		confirm: func(i int) { a.loadPreset(entries[i]) },
 	}
 	a.startOptionSearch()
 }

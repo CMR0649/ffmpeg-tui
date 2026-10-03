@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -376,26 +377,23 @@ func (a *App) updateFileBar() {
 //
 //	Xdialog（单选）；Windows: PowerShell OpenFileDialog（Multiselect）。
 func runSystemFilePicker() ([]string, error) {
+	if runtime.GOOS == "windows" {
+		return runWindowsFilePicker()
+	}
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		ps := `Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Multiselect = $true; $f.Filter = '所有文件 (*.*)|*.*'; if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.FileNames -join [Environment]::NewLine }`
-		cmd = exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
-	default:
-		for _, tool := range []struct {
-			name string
-			args []string
-		}{
-			// --separator 传实际换行符，多选路径以换行分隔。
-			{"zenity", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
-			{"qarma", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
-			{"kdialog", []string{"--getopenfilenames", ".", "所有文件 (*)"}},
-			{"Xdialog", []string{"--fselect", ".", "20", "60"}},
-		} {
-			if p, err := exec.LookPath(tool.name); err == nil {
-				cmd = exec.Command(p, tool.args...)
-				break
-			}
+	for _, tool := range []struct {
+		name string
+		args []string
+	}{
+		// --separator 传实际换行符，多选路径以换行分隔。
+		{"zenity", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
+		{"qarma", []string{"--file-selection", "--multiple", "--separator=\n", "--title=选择文件"}},
+		{"kdialog", []string{"--getopenfilenames", ".", "所有文件 (*)"}},
+		{"Xdialog", []string{"--fselect", ".", "20", "60"}},
+	} {
+		if p, err := exec.LookPath(tool.name); err == nil {
+			cmd = exec.Command(p, tool.args...)
+			break
 		}
 	}
 	if cmd == nil {
@@ -407,13 +405,49 @@ func runSystemFilePicker() ([]string, error) {
 		return nil, nil
 	}
 	// 多选路径以换行分隔。
-	var paths []string
-	for _, line := range strings.Split(string(out), "\n") {
+	return splitLines(string(out)), nil
+}
+
+// runWindowsFilePicker 用 PowerShell 的 OpenFileDialog 选择文件。
+// 结果由 PowerShell 以 UTF-8 写入临时文件后再读取，
+// 避免控制台输出编码（UTF-16/GBK）导致中文路径乱码。
+func runWindowsFilePicker() ([]string, error) {
+	tmp, err := os.CreateTemp("", "ffmpeg-tui-pick-*.txt")
+	if err != nil {
+		return nil, err
+	}
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	ps := `Add-Type -AssemblyName System.Windows.Forms; ` +
+		`$f = New-Object System.Windows.Forms.OpenFileDialog; ` +
+		`$f.Multiselect = $true; ` +
+		`$f.Filter = '所有文件 (*.*)|*.*'; ` +
+		`if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { ` +
+		`[System.IO.File]::WriteAllText($env:FFMPEG_TUI_PICKFILE, ($f.FileNames -join [char]10), (New-Object System.Text.UTF8Encoding $false)) }`
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd.Env = append(os.Environ(), "FFMPEG_TUI_PICKFILE="+tmpPath)
+	if err := cmd.Run(); err != nil {
+		return nil, nil // 取消或启动失败
+	}
+	data, err := os.ReadFile(tmpPath)
+	if err != nil || len(data) == 0 {
+		return nil, nil
+	}
+	return splitLines(string(data)), nil
+}
+
+// splitLines 按换行拆分文本并去掉空行
+func splitLines(s string) []string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	var out []string
+	for _, line := range strings.Split(s, "\n") {
 		if line = strings.TrimSpace(line); line != "" {
-			paths = append(paths, line)
+			out = append(out, line)
 		}
 	}
-	return paths, nil
+	return out
 }
 
 // ---------- ffprobe 文件信息 ----------

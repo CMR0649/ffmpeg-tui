@@ -50,7 +50,7 @@ type App struct {
 
 	// 预设页状态
 	presetList          *tview.List
-	presetNames         []string
+	presetEntries       []presetEntry
 	presetBarFocusables []tview.Primitive // 预设页 Tab 循环：预设列表 / 保存预设 / 打开预设文件夹
 	presetBarButtons    []tview.Primitive // 预设页底部横向按钮组（左右键切换）
 
@@ -86,8 +86,8 @@ func NewApp() *App {
 		cfg:      DefaultConfig(),
 	}
 
-	// 加载默认配置（若存在，来自「指定默认配置」）
-	if p := defaultConfigPath(); fileExists(p) {
+	// 加载配置：当前目录的 config.json 优先，其次默认配置路径
+	if p := configReadPath(); fileExists(p) {
 		_ = a.cfg.LoadJSON(p)
 	}
 

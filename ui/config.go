@@ -54,7 +54,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-// defaultConfigPath 返回默认配置文件路径：
+// defaultConfigPath 返回默认配置文件保存路径：
 // Windows 保存到当前目录的 .\config.json，其余平台保存到用户配置目录。
 func defaultConfigPath() string {
 	if runtime.GOOS == "windows" {
@@ -65,6 +65,16 @@ func defaultConfigPath() string {
 		dir = "."
 	}
 	return filepath.Join(dir, "ffmpeg-tui", "config.json")
+}
+
+// configReadPath 返回读取配置文件时优先使用的路径：
+// 当前目录存在 config.json 时优先读取它，否则用默认配置路径。
+func configReadPath() string {
+	cwd := filepath.Join(".", "config.json")
+	if fileExists(cwd) {
+		return cwd
+	}
+	return defaultConfigPath()
 }
 
 // fileExists 报告文件是否存在。
