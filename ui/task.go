@@ -201,12 +201,18 @@ func (a *App) runTask(t *Task) error {
 			}
 		}
 	}
+	// 读取 stderr 出错（非 EOF）时同样视为失败，避免日志内容不完整
+	scanErr := scanner.Err()
 	if err := cmd.Wait(); err != nil {
 		a.writeFFmpegLog(argv, output.String())
 		if lastErr == "" {
 			return err
 		}
 		return fmt.Errorf("%s", lastErr)
+	}
+	if scanErr != nil {
+		a.writeFFmpegLog(argv, output.String())
+		return scanErr
 	}
 	return nil
 }
