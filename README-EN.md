@@ -5,6 +5,7 @@
 > This article is translated using AI
 
 A TUI for FFmpeg
+<img width="1267" height="763" alt="image" src="https://github.com/user-attachments/assets/df7b0ee2-dc03-4492-acf0-f1299a79b04b" />
 
 ## Build
 Install Go (>=1.24.0)  
