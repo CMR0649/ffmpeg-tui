@@ -2,6 +2,7 @@
 [English](https://github.com/CMR0649/ffmpeg-tui/blob/main/README-EN.md)
 
 一个用于 FFmpeg 的 TUI
+<img width="1267" height="763" alt="image" src="https://github.com/user-attachments/assets/bf40d75e-cfed-4b25-b8ec-3a88790c2082" />
 
 ## 构建
 安装go（>=1.24.0）  
