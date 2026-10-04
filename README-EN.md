@@ -20,10 +20,11 @@ In general, just double-click the executable file. If it doesn't run, execute it
 | Key | Function |
 | --- | --- |
 | `A` / `D` | Switch tabs |
-| `↑` / `↓` | Select an item in the list on the current page |
+| `↑` / `↓` | Select items in the list on the current page |
 | `←` / `→` | Switch focus between horizontally arranged options (buttons at the bottom of the file page, dialog `[OK]`/`[Cancel]`) |
 | `Tab` / `Shift-Tab` | Cycle focus on the current page |
-| `Delete` | File page: remove the currently selected file |
-| `Enter` | Activate button / confirm dialog (confirm within input fields) |
-| `Esc` | Close dialog; exit if no dialog is open |
-| `Q` / `Esc` | Exit |
+| `Delete` | Remove the currently selected item |
+| `/` | Search |
+| `Enter` | Activate button / confirm dialog (confirm within input field) |
+| `Esc` | Close dialog; exit when no dialog is open |
+| `Q`| Quit |
