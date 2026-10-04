@@ -32,6 +32,8 @@ type EncoderInfo struct {
 	PixelFormats []string
 	Options      []string            // AVOptions 选项名
 	OptionValues map[string][]string // 选项的枚举取值（如 -preset 的 slow/medium/…）
+	// 选项 → 取值 → 说明（如 preset 的 p4 → "medium (default)"）
+	OptionDescriptions map[string]map[string]string
 }
 
 // HasOption 报告编码器是否支持指定选项（如 preset / crf / qscale）
@@ -246,8 +248,45 @@ func parseEncoderHelp(out string, info *EncoderInfo) {
 						info.OptionValues = map[string][]string{}
 					}
 					info.OptionValues[lastOption] = append(info.OptionValues[lastOption], f[0])
+					// 说明文本：标志列（形如 E..V.......）之后的内容
+					if d := enumDescription(f); d != "" {
+						if info.OptionDescriptions == nil {
+							info.OptionDescriptions = map[string]map[string]string{}
+						}
+						if info.OptionDescriptions[lastOption] == nil {
+							info.OptionDescriptions[lastOption] = map[string]string{}
+						}
+						info.OptionDescriptions[lastOption][f[0]] = d
+					}
 				}
 			}
 		}
 	}
+}
+
+// enumDescription 从枚举取值行的字段中取出说明文本：
+// 找到标志列（由字母与点组成且含点，如 E..V.......），其后为说明
+func enumDescription(fields []string) string {
+	for i := 1; i < len(fields); i++ {
+		if isFlagsField(fields[i]) {
+			if i+1 < len(fields) {
+				return strings.Join(fields[i+1:], " ")
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
+// isFlagsField 报告字段是否为 ffmpeg 帮助中的标志列（如 E..V.......）
+func isFlagsField(s string) bool {
+	if !strings.Contains(s, ".") {
+		return false
+	}
+	for _, r := range s {
+		if r != '.' && (r < 'A' || r > 'Z') {
+			return false
+		}
+	}
+	return true
 }

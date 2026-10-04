@@ -153,19 +153,20 @@ func (a *App) videoDecoderLabel() string {
 	return a.cfg.VideoDecoder
 }
 
-// editVideoPreset 预设（视编码器而定）：使用 `ffmpeg -h encoder=名称`
-// 返回的 -preset 选项枚举值，不做硬编码回退
+// editVideoPreset 预设（视编码器而定）：优先使用 `ffmpeg -h encoder=名称`
+// 返回的 -preset 枚举取值并附带说明；无法获取时用 x264Presets 回退
 func (a *App) editVideoPreset() {
-	if !a.videoEncoderHasPreset() {
+	if a.cfg.VideoEncoder == "" || a.cfg.VideoEncoder == encoderDisabled {
 		a.showMessageDialog(a.s.Preset, a.s.PresetUnsupported)
 		return
 	}
 	values := presetValuesFor(a.ffmpegBin(), a.cfg.VideoEncoder)
+	labels := a.presetLabels(a.cfg.VideoEncoder, values)
 	if len(values) == 0 {
-		a.showMessageDialog(a.s.Preset, a.s.PresetUnsupported)
-		return
+		values = x264Presets
+		labels = append([]string(nil), x264Presets...)
 	}
-	a.showOptionDialog(a.s.Preset, values, func(i int) {
+	a.showOptionDialog(a.s.Preset, labels, func(i int) {
 		a.cfg.VideoPreset = values[i]
 		a.refreshVideoPage()
 	})
@@ -177,6 +178,20 @@ func presetValuesFor(bin, encoder string) []string {
 		return nil
 	}
 	return probeEncoder(bin, encoder).OptionValues["preset"]
+}
+
+// presetLabels 预设选项的显示文本：有说明时显示「取值  说明」
+func (a *App) presetLabels(encoder string, values []string) []string {
+	descs := probeEncoder(a.ffmpegBin(), encoder).OptionDescriptions["preset"]
+	labels := make([]string, len(values))
+	for i, v := range values {
+		if d := descs[v]; d != "" {
+			labels[i] = v + "  " + d
+		} else {
+			labels[i] = v
+		}
+	}
+	return labels
 }
 
 // videoEncoderHasPreset 报告当前编码器是否支持 -preset 选项

@@ -82,7 +82,7 @@ var zh = &Strings{
 	FooterVideoAudio: "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Esc/Q：退出",
 	FooterPresets:    "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Delete：删除   Esc：退出",
 	FooterSettings:   "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Esc/Q：退出",
-	FooterTasks:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Esc/Q：退出",
+	FooterTasks:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Delete：移除/终止   Esc/Q：退出",
 	OK:               "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
@@ -151,8 +151,8 @@ var zh = &Strings{
 	Exported:              "配置已导出到：\n%s",
 	LoadCfgFailed:         "无法加载配置文件：\n%s",
 	Loaded:                "已加载配置：\n%s",
-	SaveDefaultFailed:     "无法保存默认配置：\n%s",
-	SavedDefault:          "当前配置已保存为默认配置：\n%s",
+	SaveDefaultFailed:     "无法保存配置：\n%s",
+	SavedDefault:          "当前配置已保存为：\n%s",
 }
 
 var en = &Strings{
@@ -161,7 +161,7 @@ var en = &Strings{
 	FooterVideoAudio: "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Esc/Q: quit",
 	FooterPresets:    "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Delete: delete   Esc: quit",
 	FooterSettings:   "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Esc/Q: quit",
-	FooterTasks:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Esc/Q: quit",
+	FooterTasks:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Delete: remove/terminate   Esc/Q: quit",
 	OK:               "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
@@ -230,8 +230,8 @@ var en = &Strings{
 	Exported:              "Config exported to:\n%s",
 	LoadCfgFailed:         "Cannot load config file:\n%s",
 	Loaded:                "Config loaded from:\n%s",
-	SaveDefaultFailed:     "Cannot save default config:\n%s",
-	SavedDefault:          "Saved current config as default:\n%s",
+	SaveDefaultFailed:     "Cannot save config:\n%s",
+	SavedDefault:          "Saved current config:\n%s",
 }
 
 // detectLang 按环境变量检测语言（优先级与 GNU gettext 一致）：

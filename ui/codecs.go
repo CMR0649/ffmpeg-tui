@@ -1,5 +1,11 @@
 package ui
 
+// x264Presets 无法从 `ffmpeg -h encoder=` 获取预设时的回退预设列表。
+var x264Presets = []string{
+	"ultrafast", "superfast", "veryfast", "faster", "fast",
+	"medium", "slow", "slower", "veryslow", "placebo",
+}
+
 // 对应 FFmpeg 文档：-crf（恒定质量）、-b:v / -maxrate / -minrate / -bufsize。
 var qualityModes = []string{"恒定质量 CRF", "可变码率 VBR", "固定码率 CBR"}
 

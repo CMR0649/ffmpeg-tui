@@ -31,6 +31,26 @@ type Task struct {
 	index    int
 	// frame= 行解析出的实时数据
 	frameCount, fps, bitrate, speed string
+
+	mu  sync.Mutex
+	cmd *exec.Cmd // 运行中的进程（用于终止）
+}
+
+// setCmd 记录任务当前运行的进程
+func (t *Task) setCmd(c *exec.Cmd) {
+	t.mu.Lock()
+	t.cmd = c
+	t.mu.Unlock()
+}
+
+// kill 终止任务当前运行的进程
+func (t *Task) kill() {
+	t.mu.Lock()
+	c := t.cmd
+	t.mu.Unlock()
+	if c != nil && c.Process != nil {
+		_ = c.Process.Kill()
+	}
 }
 
 // frameRe 匹配 ffmpeg 进度输出中以 frame= 开头的行，
@@ -126,8 +146,29 @@ func (a *App) taskProgressText(t *Task) string {
 // updateTask 更新单个任务在列表中的显示
 func (a *App) updateTask(t *Task) {
 	a.tviewApp.QueueUpdateDraw(func() {
+		if t.index < 0 || t.index >= a.taskList.GetItemCount() {
+			return
+		}
 		a.taskList.SetItemText(t.index, taskMainText(t), a.taskSecondaryText(t))
 	})
+}
+
+// deleteSelectedTask 任务页 Delete：运行中的任务终止，其余（等待/已完成/失败）移除
+func (a *App) deleteSelectedTask() {
+	if a.taskList.GetItemCount() == 0 {
+		return
+	}
+	idx := a.taskList.GetCurrentItem()
+	if idx < 0 || idx >= len(a.tasks) {
+		return
+	}
+	t := a.tasks[idx]
+	if t.Status == "running" {
+		t.kill()
+		return
+	}
+	a.tasks = append(a.tasks[:idx], a.tasks[idx+1:]...)
+	a.refreshTasks()
 }
 
 // startTasks 并行执行所有等待中的任务（并行数为配置值）
@@ -177,6 +218,8 @@ func (a *App) runTask(t *Task) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	t.setCmd(cmd)
+	defer t.setCmd(nil)
 	lastErr := ""
 	var output strings.Builder
 	scanner := bufio.NewScanner(stderr)

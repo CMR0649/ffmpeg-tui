@@ -412,6 +412,11 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			a.deleteSelectedPreset()
 			return nil
 		}
+		// 任务界面：Delete 终止运行中的任务 / 移除其余任务
+		if !a.dialogOpen && a.current == 3 && a.taskList != nil && a.taskList.GetItemCount() > 0 {
+			a.deleteSelectedTask()
+			return nil
+		}
 	case tcell.KeyEscape:
 		if a.dialogOpen {
 			a.closeDialog()
