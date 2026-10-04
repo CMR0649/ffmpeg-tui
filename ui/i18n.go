@@ -271,5 +271,5 @@ func effectiveLang(cfgLang string) string {
 	if d := detectLang(); d != "" {
 		return d
 	}
-	return "zh"
+	return "en"
 }
