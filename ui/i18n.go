@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -234,22 +235,63 @@ var en = &Strings{
 	SavedDefault:          "Saved current config:\n%s",
 }
 
-// detectLang 按环境变量检测语言（优先级与 GNU gettext 一致）：
-// LANGUAGE > LC_ALL > LC_MESSAGES > LANG；返回 "zh" 或 "en"，
-// 无法判断时返回 ""
+// detectLang 检测界面语言：环境变量优先，其次 Linux 的 /etc/locale.conf；
+// 只要匹配 zh（zh_CN、zh_TW 等）即为中文，其余一律英文
 func detectLang() string {
 	for _, name := range []string{"LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"} {
-		v := os.Getenv(name)
-		if v == "" {
+		if v := os.Getenv(name); v != "" {
+			return langFromLocale(v)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		if v := localeConfLang(); v != "" {
+			return langFromLocale(v)
+		}
+	}
+	return "en"
+}
+
+// langFromLocale 按 locale 值返回语言：匹配 zh 为中文，否则英文
+func langFromLocale(v string) string {
+	if langMatchesZh(v) {
+		return "zh"
+	}
+	return "en"
+}
+
+// langMatchesZh 报告 locale 值是否为中文：zh、zh_CN、zh_TW、zh-Hans 等；
+// LANGUAGE 可能是冒号分隔的列表，任一项匹配 zh 即视为中文
+func langMatchesZh(v string) bool {
+	for _, part := range strings.Split(v, ":") {
+		p := strings.ToLower(strings.TrimSpace(part))
+		if strings.HasPrefix(p, "zh") {
+			return true
+		}
+	}
+	return false
+}
+
+// localeConfLang 读取 /etc/locale.conf 中的语言设置（Linux）
+func localeConfLang() string {
+	data, err := os.ReadFile("/etc/locale.conf")
+	if err != nil {
+		return ""
+	}
+	vals := map[string]string{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// LANGUAGE 可以是冒号分隔的列表，取第一个
-		lv := strings.ToLower(strings.Split(v, ":")[0])
-		if strings.HasPrefix(lv, "zh") || strings.HasPrefix(lv, "cmn") {
-			return "zh"
+		k, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
 		}
-		if strings.HasPrefix(lv, "en") {
-			return "en"
+		vals[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(val), `"'`)
+	}
+	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := vals[k]; v != "" {
+			return v
 		}
 	}
 	return ""
@@ -263,13 +305,10 @@ func langStrings(lang string) *Strings {
 	return zh
 }
 
-// effectiveLang 计算当前语言：配置显式设置优先，否则按环境变量，最后默认中文
+// effectiveLang 计算当前语言：配置显式设置优先，否则按检测结果（默认英文）
 func effectiveLang(cfgLang string) string {
 	if cfgLang == "zh" || cfgLang == "en" {
 		return cfgLang
 	}
-	if d := detectLang(); d != "" {
-		return d
-	}
-	return "en"
+	return detectLang()
 }
