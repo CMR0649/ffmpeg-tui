@@ -27,6 +27,24 @@ func (a *App) refreshAudioPage() {
 	l.AddItem(a.s.AudioBitrate, a.audioBitrateLabel(), 0, func() { a.editAudioBitrate() })
 	l.AddItem(a.s.SampleRate, a.sampleRateLabel(), 0, func() { a.editSampleRate() })
 	l.AddItem(a.s.BitDepth, a.bitDepthLabel(), 0, func() { a.editBitDepth() })
+	// 自定义参数（最后一个选项）
+	l.AddItem(a.s.CustomParams, a.audioCustomParamsLabel(), 0, func() { a.editAudioCustomParams() })
+}
+
+// editAudioCustomParams 自定义参数：追加到生成的音频参数末尾
+func (a *App) editAudioCustomParams() {
+	a.showInputDialog(a.s.CustomParams, a.cfg.AudioCustomParams, func(text string) {
+		a.cfg.AudioCustomParams = strings.TrimSpace(text)
+		a.refreshAudioPage()
+	})
+}
+
+// audioCustomParamsLabel 自定义参数项的当前值显示
+func (a *App) audioCustomParamsLabel() string {
+	if a.cfg.AudioCustomParams == "" {
+		return "—"
+	}
+	return a.cfg.AudioCustomParams
 }
 
 // editAudioEncoder 编码器（默认复制流，可禁用），列表动态加载

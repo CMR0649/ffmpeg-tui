@@ -28,10 +28,11 @@ type Preset struct {
 	CustomParams string `json:"custom_params"`
 
 	// 音频
-	AudioEncoder string `json:"audio_encoder"`
-	AudioBitrate string `json:"audio_bitrate"`
-	SampleRate   string `json:"sample_rate"`
-	BitDepth     string `json:"bit_depth"`
+	AudioEncoder      string `json:"audio_encoder"`
+	AudioBitrate      string `json:"audio_bitrate"`
+	SampleRate        string `json:"sample_rate"`
+	BitDepth          string `json:"bit_depth"`
+	AudioCustomParams string `json:"audio_custom_params"`
 
 	// 输出容器
 	OutputContainer string `json:"output_container"`
@@ -58,6 +59,7 @@ func (p *Preset) fromConfig(c *Config) {
 	p.AudioBitrate = c.AudioBitrate
 	p.SampleRate = c.SampleRate
 	p.BitDepth = c.BitDepth
+	p.AudioCustomParams = c.AudioCustomParams
 	p.OutputContainer = c.OutputContainer
 }
 
@@ -79,13 +81,15 @@ func (p *Preset) applyTo(c *Config) {
 	c.AudioBitrate = p.AudioBitrate
 	c.SampleRate = p.SampleRate
 	c.BitDepth = p.BitDepth
+	c.AudioCustomParams = p.AudioCustomParams
 	c.OutputContainer = p.OutputContainer
 }
 
-// presetDir 预设保存目录：Windows 为 .\preset，其余平台为用户配置目录下的 preset。
+// presetDir 预设默认保存目录：Windows 为 <用户>\Documents\ffmpeg-tui\preset，
+// 其余平台为用户配置目录下的 preset。
 func presetDir() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(".", "preset")
+		return filepath.Join(windowsBaseDir(), "preset")
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -94,15 +98,21 @@ func presetDir() string {
 	return filepath.Join(dir, "ffmpeg-tui", "preset")
 }
 
+// presetSaveDir 预设保存目录：便携模式（当前目录有 config.json）下为当前目录的 preset，
+// 否则为默认目录。
+func presetSaveDir() string {
+	if portableMode() {
+		return filepath.Join(".", "preset")
+	}
+	return presetDir()
+}
+
 // presetDirs 预设读取目录列表（按优先级）：当前目录的 preset 在前，
-// 随后是用户配置目录下的 preset（Windows 仅当前目录）。
+// 随后是默认预设目录（两者相同时只保留一个）。
 func presetDirs() []string {
 	dirs := []string{filepath.Join(".", "preset")}
-	if runtime.GOOS == "windows" {
-		return dirs
-	}
-	if d, err := os.UserConfigDir(); err == nil {
-		dirs = append(dirs, filepath.Join(d, "ffmpeg-tui", "preset"))
+	if def := presetDir(); filepath.Clean(def) != filepath.Clean(dirs[0]) {
+		dirs = append(dirs, def)
 	}
 	return dirs
 }
@@ -223,7 +233,7 @@ func savePreset(name string, p *Preset) error {
 	if err != nil {
 		return err
 	}
-	dir := presetDir()
+	dir := presetSaveDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

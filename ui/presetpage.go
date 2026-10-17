@@ -217,7 +217,7 @@ func (a *App) showAddCustomCommandDialog() {
 	})
 }
 
-// openPresetDir 用系统默认文件管理器打开预设文件夹。
+// openPresetDir 用系统默认文件管理器打开预设保存文件夹。
 func (a *App) openPresetDir() {
-	_ = openURL(presetDir())
+	_ = openURL(presetSaveDir())
 }

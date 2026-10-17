@@ -72,6 +72,10 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 		} else {
 			args = append(args, "-c:a", "copy") // 默认复制流
 		}
+		// 自定义参数：追加到生成的音频参数末尾
+		if a.cfg.AudioCustomParams != "" {
+			args = append(args, strings.Fields(a.cfg.AudioCustomParams)...)
+		}
 	}
 
 	if a.cfg.OutputContainer != "" {

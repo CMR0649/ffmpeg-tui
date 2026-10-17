@@ -47,9 +47,6 @@ func relaunchInTerminal() bool {
 		return cmd.Start() == nil
 	default:
 		// Linux 等：依次尝试常见终端模拟器，统一使用 "-e <程序>" 形式
-		// （Ghostty/gnome-terminal/konsole/xfce4-terminal/xterm 均支持；
-		// 注意不能用 "--"：Ghostty 会把 "--" 当作未知配置键解析，报
-		// "unknown field" / "invalid field" 错误）。
 		for _, t := range []string{
 			"ghostty",
 			"gnome-terminal",

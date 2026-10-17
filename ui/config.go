@@ -26,10 +26,11 @@ type Config struct {
 	CustomParams string `json:"custom_params"` // 自定义参数（追加到视频参数末尾）
 
 	// 音频
-	AudioEncoder string `json:"audio_encoder"` // 编码器
-	AudioBitrate string `json:"audio_bitrate"` // 比特率，kbps
-	SampleRate   string `json:"sample_rate"`   // 采样率，Hz
-	BitDepth     string `json:"bit_depth"`     // 位深度
+	AudioEncoder      string `json:"audio_encoder"`       // 编码器
+	AudioBitrate      string `json:"audio_bitrate"`       // 比特率，kbps
+	SampleRate        string `json:"sample_rate"`         // 采样率，Hz
+	BitDepth          string `json:"bit_depth"`           // 位深度
+	AudioCustomParams string `json:"audio_custom_params"` // 自定义参数（追加到音频参数末尾）
 
 	// 文件 / 输出
 	OutputDir       string `json:"output_dir"`       // 空或 $file = 输入文件所在目录
@@ -54,11 +55,32 @@ func DefaultConfig() *Config {
 	}
 }
 
+// cwdConfigPath 当前目录下的配置文件路径（便携模式标志）
+func cwdConfigPath() string {
+	return filepath.Join(".", "config.json")
+}
+
+// portableMode 报告当前目录是否存在 config.json：
+// 存在时配置与预设都保存到当前目录
+func portableMode() bool {
+	return fileExists(cwdConfigPath())
+}
+
+// windowsBaseDir Windows 下 ffmpeg-tui 的默认目录：<用户>\Documents\ffmpeg-tui
+func windowsBaseDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(".", "ffmpeg-tui")
+	}
+	return filepath.Join(home, "Documents", "ffmpeg-tui")
+}
+
 // defaultConfigPath 返回默认配置文件保存路径：
-// Windows 保存到当前目录的 .\config.json，其余平台保存到用户配置目录。
+// Windows 为 <用户>\Documents\ffmpeg-tui\config.json，
+// 其余平台为用户配置目录下的 ffmpeg-tui/config.json。
 func defaultConfigPath() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(".", "config.json")
+		return filepath.Join(windowsBaseDir(), "config.json")
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -67,12 +89,20 @@ func defaultConfigPath() string {
 	return filepath.Join(dir, "ffmpeg-tui", "config.json")
 }
 
+// configSavePath 返回配置文件保存路径：便携模式（当前目录有 config.json）下为当前目录，
+// 否则为默认路径。
+func configSavePath() string {
+	if portableMode() {
+		return cwdConfigPath()
+	}
+	return defaultConfigPath()
+}
+
 // configReadPath 返回读取配置文件时优先使用的路径：
 // 当前目录存在 config.json 时优先读取它，否则用默认配置路径。
 func configReadPath() string {
-	cwd := filepath.Join(".", "config.json")
-	if fileExists(cwd) {
-		return cwd
+	if portableMode() {
+		return cwdConfigPath()
 	}
 	return defaultConfigPath()
 }

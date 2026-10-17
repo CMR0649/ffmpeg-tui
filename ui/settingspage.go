@@ -235,9 +235,10 @@ func (a *App) loadConfig() {
 
 // saveAsDefault 把当前配置保存为默认配置（启动时自动加载）
 func (a *App) saveAsDefault() {
-	if err := a.cfg.SaveJSON(defaultConfigPath()); err != nil {
+	path := configSavePath()
+	if err := a.cfg.SaveJSON(path); err != nil {
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SaveDefaultFailed, err.Error()))
 		return
 	}
-	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SavedDefault, defaultConfigPath()))
+	a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SavedDefault, path))
 }
