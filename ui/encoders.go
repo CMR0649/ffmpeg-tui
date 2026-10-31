@@ -80,6 +80,7 @@ func resetCodecCaches() {
 	videoDecoders, audioDecoders = nil, nil
 	outputFormats = nil
 	encoderInfoCache = map[string]*EncoderInfo{}
+	resetFilterCaches()
 }
 
 // loadCodecLists 加载编码器/解码器列表

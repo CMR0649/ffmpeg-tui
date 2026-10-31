@@ -27,6 +27,10 @@ type Preset struct {
 	VideoFPS     string `json:"video_fps"`
 	CustomParams string `json:"custom_params"`
 
+	// 滤镜链
+	VideoFilters []FilterInstance `json:"video_filters"`
+	AudioFilters []FilterInstance `json:"audio_filters"`
+
 	// 音频
 	AudioEncoder      string `json:"audio_encoder"`
 	AudioBitrate      string `json:"audio_bitrate"`
@@ -55,6 +59,8 @@ func (p *Preset) fromConfig(c *Config) {
 	p.VideoHeight = c.VideoHeight
 	p.VideoFPS = c.VideoFPS
 	p.CustomParams = c.CustomParams
+	p.VideoFilters = copyFilters(c.VideoFilters)
+	p.AudioFilters = copyFilters(c.AudioFilters)
 	p.AudioEncoder = c.AudioEncoder
 	p.AudioBitrate = c.AudioBitrate
 	p.SampleRate = c.SampleRate
@@ -77,6 +83,8 @@ func (p *Preset) applyTo(c *Config) {
 	c.VideoHeight = p.VideoHeight
 	c.VideoFPS = p.VideoFPS
 	c.CustomParams = p.CustomParams
+	c.VideoFilters = copyFilters(p.VideoFilters)
+	c.AudioFilters = copyFilters(p.AudioFilters)
 	c.AudioEncoder = p.AudioEncoder
 	c.AudioBitrate = p.AudioBitrate
 	c.SampleRate = p.SampleRate

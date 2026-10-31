@@ -9,11 +9,19 @@ import (
 // Strings 保存界面文本（中英文），用于语言切换
 type Strings struct {
 	// 标签页
-	TabFiles, TabVideo, TabAudio, TabTasks, TabPresets, TabSettings string
+	TabFiles, TabVideo, TabAudio, TabFilters, TabTasks, TabPresets, TabSettings string
 	// 底部按键提示（按页面）
-	FooterFiles, FooterVideoAudio, FooterPresets, FooterSettings, FooterTasks string
+	FooterFiles, FooterVideoAudio, FooterFilters, FooterPresets, FooterSettings, FooterTasks string
 	// 通用
 	OK, Cancel, Search, Hint string
+	// 滤镜页
+	FiltersTitle, FilterVideoChain, FilterAudioChain     string
+	FilterAddVideo, FilterAddAudio                       string
+	FilterMoveUp, FilterMoveDown                         string
+	FilterEmpty, FilterCount                             string
+	FilterCopyWarn, FilterNeedEncode                     string
+	FilterParamsTitle, FilterPreview, FilterValueInvalid string
+	FilterListFailed, FilterPickHint                     string
 	// 文件页
 	FilesTitle      string
 	OutputDir       string
@@ -78,13 +86,26 @@ type Strings struct {
 }
 
 var zh = &Strings{
-	TabFiles: "文件", TabVideo: "视频", TabAudio: "音频", TabTasks: "任务", TabPresets: "预设", TabSettings: "设置",
+	TabFiles: "文件", TabVideo: "视频", TabAudio: "音频", TabFilters: "滤镜", TabTasks: "任务", TabPresets: "预设", TabSettings: "设置",
 	FooterFiles:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Delete：移除   Esc/Q：退出",
 	FooterVideoAudio: "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Esc/Q：退出",
+	FooterFilters:    "A/D：切换   Tab：焦点   方向键：选择   回车：确定   +/-：排序   Delete：删除   /：搜索   Esc/Q：退出",
 	FooterPresets:    "A/D：切换   Tab：焦点   方向键：选择   回车：确定   /：搜索   Delete：删除   Esc：退出",
 	FooterSettings:   "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Esc/Q：退出",
 	FooterTasks:      "A/D：切换   Tab：焦点   方向键：选择   回车：确定   Delete：移除/终止   Esc/Q：退出",
-	OK:               "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
+	FiltersTitle:     " 滤镜 ",
+	FilterVideoChain: " 视频滤镜（从上到下依次应用） ",
+	FilterAudioChain: " 音频滤镜（从上到下依次应用） ",
+	FilterAddVideo:   "[添加视频滤镜]", FilterAddAudio: "[添加音频滤镜]",
+	FilterMoveUp: "[上移]", FilterMoveDown: "[下移]",
+	FilterEmpty:       "（空，按回车或 / 添加）",
+	FilterCount:       "视频 %d 个 · 音频 %d 个",
+	FilterCopyWarn:    "[yellow]⚠ 复制流时滤镜不生效[-] ",
+	FilterNeedEncode:  "滤镜链非空但当前编码器为复制流，滤镜不会生效。是否切换为默认编码（libx264 / aac）？",
+	FilterParamsTitle: "滤镜参数", FilterPreview: "预览：",
+	FilterValueInvalid: "参数 %s 的值无效：%s",
+	FilterListFailed:   "无法获取滤镜列表", FilterPickHint: "（回车选择文件）",
+	OK: "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
 	OutputDirTitle:  "输出目录（$file 为输入文件目录）",
@@ -157,13 +178,26 @@ var zh = &Strings{
 }
 
 var en = &Strings{
-	TabFiles: "Files", TabVideo: "Video", TabAudio: "Audio", TabTasks: "Tasks", TabPresets: "Presets", TabSettings: "Settings",
+	TabFiles: "Files", TabVideo: "Video", TabAudio: "Audio", TabFilters: "Filters", TabTasks: "Tasks", TabPresets: "Presets", TabSettings: "Settings",
 	FooterFiles:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Delete: remove   Esc/Q: quit",
 	FooterVideoAudio: "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Esc/Q: quit",
+	FooterFilters:    "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   +/-: reorder   Delete: remove   /: search   Esc/Q: quit",
 	FooterPresets:    "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   /: search   Delete: delete   Esc: quit",
 	FooterSettings:   "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Esc/Q: quit",
 	FooterTasks:      "A/D: switch   Tab: focus   Arrows: select   Enter: confirm   Delete: remove/terminate   Esc/Q: quit",
-	OK:               "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
+	FiltersTitle:     " Filters ",
+	FilterVideoChain: " Video filters (top to bottom) ",
+	FilterAudioChain: " Audio filters (top to bottom) ",
+	FilterAddVideo:   "[Add video filter]", FilterAddAudio: "[Add audio filter]",
+	FilterMoveUp: "[Up]", FilterMoveDown: "[Down]",
+	FilterEmpty:       "(empty, press Enter or / to add)",
+	FilterCount:       "video %d · audio %d",
+	FilterCopyWarn:    "[yellow]⚠ filters have no effect with stream copy[-] ",
+	FilterNeedEncode:  "The filter chain is not empty but the encoder is set to stream copy, so filters will not apply. Switch to the default encoders (libx264 / aac)?",
+	FilterParamsTitle: "Filter parameters", FilterPreview: "Preview: ",
+	FilterValueInvalid: "Invalid value for %s: %s",
+	FilterListFailed:   "Cannot get filter list", FilterPickHint: " (Enter to pick a file)",
+	OK: "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
 	OutputDirTitle:  "Output directory ($file = input file directory)",

@@ -73,8 +73,17 @@ func scanProgress(data []byte, atEOF bool) (advance int, token []byte, err error
 	return 0, nil, nil
 }
 
-// addTasksFromFiles 把文件页的文件列表生成为转码任务
+// addTasksFromFiles 把文件页的文件列表生成为转码任务（滤镜与复制流冲突时先确认）
 func (a *App) addTasksFromFiles() {
+	if len(a.files) == 0 {
+		a.showMessageDialog(a.s.Hint, a.s.NoFilesToTask)
+		return
+	}
+	a.withFilterEncoding(a.doAddTasksFromFiles)
+}
+
+// doAddTasksFromFiles 实际生成任务
+func (a *App) doAddTasksFromFiles() {
 	if len(a.files) == 0 {
 		a.showMessageDialog(a.s.Hint, a.s.NoFilesToTask)
 		return
@@ -220,6 +229,11 @@ func (a *App) deleteSelectedTask() {
 
 // startTasks 并行执行所有等待中的任务（并行数为配置值）
 func (a *App) startTasks() {
+	a.withFilterEncoding(a.doStartTasks)
+}
+
+// doStartTasks 实际开始执行任务
+func (a *App) doStartTasks() {
 	n := a.cfg.ParallelTasks
 	if n < 1 {
 		n = 1

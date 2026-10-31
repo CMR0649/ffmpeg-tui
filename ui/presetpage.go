@@ -114,7 +114,8 @@ func (a *App) searchPreset() {
 	}
 	labels := make([]string, len(entries))
 	for i, e := range entries {
-		labels[i] = tview.Escape(e.Label)
+		// 选项列表改为按原样绘制的可换行列表，不再需要转义颜色标签
+		labels[i] = e.Label
 	}
 	a.optDialog = &optionDialog{
 		title:   a.s.SearchPreset,

@@ -12,13 +12,15 @@ import (
 // 序号 0（文件页）由 App.buildFilesPage 构建，这里处理其余页面
 func (a *App) buildPage(index int) tview.Primitive {
 	switch index {
-	case 1:
+	case pageVideo:
 		return a.buildVideoPage()
-	case 2:
+	case pageAudio:
 		return a.buildAudioPage()
-	case 3:
+	case pageFilters:
+		return a.buildFiltersPage()
+	case pageTasks:
 		return a.buildTasksPage()
-	case 4:
+	case pagePresets:
 		return a.buildPresetsPage()
 	default:
 		return a.buildSettingsPage()

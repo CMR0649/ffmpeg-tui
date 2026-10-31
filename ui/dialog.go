@@ -58,6 +58,7 @@ func (a *App) closeDialog() {
 	if !a.dialogOpen {
 		return
 	}
+	a.filterForm = nil // 关闭任何对话框时丢弃参数表单状态
 	a.dialogOpen = false
 	a.rootPages.RemovePage("dialog")
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
@@ -72,14 +73,14 @@ func (a *App) screenSize() (int, int) {
 	return w, h
 }
 
-// centeredGrid 把 box 居中放在界面内，宽高不超过界面（留 2 列/行余量）
-func (a *App) centeredGrid(box tview.Primitive, width, height int) *tview.Grid {
-	sw, sh := a.screenSize()
+// clampDialogSize 把弹窗宽高限制在界面内：宽度最多留 2 列余量，
+// 高度最多为界面高度减 6，保证弹窗上方与下方各至少空出 3 行
+func clampDialogSize(sw, sh, width, height int) (int, int) {
 	if width > sw-2 {
 		width = sw - 2
 	}
-	if height > sh-2 {
-		height = sh - 2
+	if maxH := sh - 6; height > maxH {
+		height = maxH
 	}
 	if width < 10 {
 		width = 10
@@ -87,6 +88,13 @@ func (a *App) centeredGrid(box tview.Primitive, width, height int) *tview.Grid {
 	if height < 4 {
 		height = 4
 	}
+	return width, height
+}
+
+// centeredGrid 把 box 居中放在界面内（宽高经 clampDialogSize 限制）
+func (a *App) centeredGrid(box tview.Primitive, width, height int) *tview.Grid {
+	sw, sh := a.screenSize()
+	width, height = clampDialogSize(sw, sh, width, height)
 	grid := tview.NewGrid()
 	grid.SetColumns(0, width, 0)
 	grid.SetRows(0, height, 0)
@@ -95,23 +103,54 @@ func (a *App) centeredGrid(box tview.Primitive, width, height int) *tview.Grid {
 	return grid
 }
 
-// dialogTextHeight 返回文本在指定宽度内占用的行数（含换行与自动折行）
+// dialogTextHeight 返回文本在指定宽度内占用的行数（含换行与自动折行），
+// 按「空格断行 + 超长单词按字符折行」估算，结果不小于实际行数，避免文字被裁掉
 func dialogTextHeight(text string, width int) int {
 	if width < 1 {
 		width = 1
 	}
 	total := 0
 	for _, line := range strings.Split(text, "\n") {
-		n := (runewidth.StringWidth(line) + width - 1) / width
-		if n < 1 {
-			n = 1
-		}
-		total += n
+		total += wrappedLineCount(line, width)
 	}
 	if total < 1 {
 		total = 1
 	}
 	return total
+}
+
+// wrappedLineCount 估算一段（无换行符的）文本折行后的行数
+func wrappedLineCount(line string, width int) int {
+	if width < 1 {
+		width = 1
+	}
+	if runewidth.StringWidth(line) <= width {
+		return 1
+	}
+	lines := 1
+	cur := -1 // 当前行已用宽度（-1 表示行首，无前导空格）
+	for _, word := range strings.Split(line, " ") {
+		w := runewidth.StringWidth(word)
+		if cur < 0 {
+			for w > width {
+				lines++
+				w -= width
+			}
+			cur = w
+			continue
+		}
+		if cur+1+w <= width {
+			cur += 1 + w
+			continue
+		}
+		lines++
+		for w > width {
+			lines++
+			w -= width
+		}
+		cur = w
+	}
+	return lines
 }
 
 // messageDialogHeight 提示类弹窗高度：文本行数 + 按钮与留白（3）+ 边框（2）
@@ -147,7 +186,7 @@ type optionDialog struct {
 	confirm  func(int)
 	filter   string
 	filtered []int
-	list     *tview.List
+	list     *wrappedList
 }
 
 // showOptionDialog 显示选项选择对话框；confirm(index) 在确定后调用
@@ -157,13 +196,33 @@ func (a *App) showOptionDialog(title string, options []string, confirm func(int)
 	a.buildOptionDialog()
 }
 
-// buildOptionDialog 按当前过滤条件重建选项对话框
-func (a *App) buildOptionDialog() {
-	d := a.optDialog
-	if d == nil {
-		return
+// newOptionList 创建选项对话框的可换行列表（确认后应用选中项）
+func (a *App) newOptionList(d *optionDialog) *wrappedList {
+	list := newWrappedList()
+	list.SetItems(a.optionListTexts(d))
+	list.SetSelectedFunc(func(ci int) {
+		a.closeDialog()
+		if ci >= 0 && ci < len(d.filtered) {
+			d.confirm(d.filtered[ci])
+		}
+	})
+	return list
+}
+
+// optionListTexts 返回当前过滤结果的显示文本（无结果时显示提示项）
+func (a *App) optionListTexts(d *optionDialog) []string {
+	if len(d.filtered) == 0 {
+		return []string{a.noMatchLabel()}
 	}
-	// 过滤
+	texts := make([]string, 0, len(d.filtered))
+	for _, idx := range d.filtered {
+		texts = append(texts, d.options[idx])
+	}
+	return texts
+}
+
+// filterOptions 按 d.filter 计算过滤结果下标
+func (a *App) filterOptions(d *optionDialog) {
 	d.filtered = d.filtered[:0]
 	needle := strings.ToLower(d.filter)
 	for i, opt := range d.options {
@@ -171,25 +230,38 @@ func (a *App) buildOptionDialog() {
 			d.filtered = append(d.filtered, i)
 		}
 	}
+}
 
-	list := tview.NewList()
-	a.selectOnSecondClick(list)
-	for _, idx := range d.filtered {
-		idx := idx
-		list.AddItem(d.options[idx], "", 0, func() {
-			a.closeDialog()
-			d.confirm(idx)
-		})
+// optionListHeight 估算选项列表折行后占用的行数（按弹窗内宽折行）
+func (a *App) optionListHeight(d *optionDialog, width int) int {
+	total := 0
+	for i, t := range a.optionListTexts(d) {
+		if i > 0 {
+			total++ // 项与项之间空一行
+		}
+		total += len(wrapText(t, width-2))
 	}
-	if len(d.filtered) == 0 {
-		list.AddItem(a.noMatchLabel(), "", 0, nil)
+	if total < 1 {
+		total = 1
 	}
-	d.list = list
+	return total
+}
+
+// buildOptionDialog 按当前过滤条件重建选项对话框
+func (a *App) buildOptionDialog() {
+	d := a.optDialog
+	if d == nil {
+		return
+	}
+	// 过滤
+	a.filterOptions(d)
+
+	list := a.newOptionList(d)
 
 	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
 	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
 	ok.SetSelectedFunc(func() {
-		ci := list.GetCurrentItem()
+		ci := list.GetSelected()
 		a.closeDialog()
 		if ci >= 0 && ci < len(d.filtered) {
 			d.confirm(d.filtered[ci])
@@ -197,8 +269,8 @@ func (a *App) buildOptionDialog() {
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
-	// 每个选项占两行（次要文本行），据此计算弹窗高度；超界由 centeredGrid 裁剪
-	height := len(d.filtered)*2 + 5
+	// 高度按折行后的实际行数估算；超界由 centeredGrid 裁剪（上下各留 3 行）
+	height := a.optionListHeight(d, 56) + 5
 	if height < 7 {
 		height = 7
 	}
@@ -216,36 +288,19 @@ func (a *App) startOptionSearch() {
 	}
 	input := tview.NewInputField()
 	input.SetFieldWidth(0) // 填满弹窗内宽
-	list := tview.NewList()
-	a.selectOnSecondClick(list)
+	list := a.newOptionList(d)
 
 	// applyFilter 按输入内容实时过滤并重建结果列表
 	applyFilter := func(text string) {
 		d.filter = text
-		d.filtered = d.filtered[:0]
-		needle := strings.ToLower(text)
-		for i, opt := range d.options {
-			if needle == "" || strings.Contains(strings.ToLower(opt), needle) {
-				d.filtered = append(d.filtered, i)
-			}
-		}
-		list.Clear()
-		for _, idx := range d.filtered {
-			idx := idx
-			list.AddItem(d.options[idx], "", 0, func() {
-				a.closeDialog()
-				d.confirm(idx)
-			})
-		}
-		if len(d.filtered) == 0 {
-			list.AddItem(a.noMatchLabel(), "", 0, nil)
-		}
+		a.filterOptions(d)
+		list.SetItems(a.optionListTexts(d))
 	}
 	input.SetChangedFunc(applyFilter)
 	input.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			// 输入框 Enter：直接应用当前高亮的结果
-			ci := list.GetCurrentItem()
+			ci := list.GetSelected()
 			a.closeDialog()
 			if ci >= 0 && ci < len(d.filtered) {
 				d.confirm(d.filtered[ci])
@@ -262,7 +317,7 @@ func (a *App) startOptionSearch() {
 	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
 	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
 	ok.SetSelectedFunc(func() {
-		ci := list.GetCurrentItem()
+		ci := list.GetSelected()
 		a.closeDialog()
 		if ci >= 0 && ci < len(d.filtered) {
 			d.confirm(d.filtered[ci])
@@ -271,8 +326,8 @@ func (a *App) startOptionSearch() {
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	// 输入框 1 行 + 间隔 1 行 + 结果列表（每项 2 行）+ 按钮与留白 3 + 边框 2
-	height := len(d.filtered)*2 + 7
+	// 输入框 1 行 + 间隔 1 行 + 折行后的结果行数 + 按钮与留白 3 + 边框 2
+	height := a.optionListHeight(d, 62) + 7
 	if height < 9 {
 		height = 9
 	}
@@ -310,6 +365,9 @@ func (a *App) showMessageDialog(title, text string) {
 	tv := tview.NewTextView()
 	tv.SetText(text)
 	tv.SetTextAlign(tview.AlignLeft)
+	// 内容过长时自动换行（按词换行，中文按字换行），换行后两行紧贴
+	tv.SetWrap(true)
+	tv.SetWordWrap(true)
 	tv.SetDynamicColors(true)
 	tv.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	tv.SetTextStyle(tcell.StyleDefault.
@@ -329,6 +387,9 @@ func (a *App) showConfirmDialog(text string, onOK func()) {
 	tv := tview.NewTextView()
 	tv.SetText(text)
 	tv.SetTextAlign(tview.AlignLeft)
+	// 内容过长时自动换行（按词换行，中文按字换行），换行后两行紧贴
+	tv.SetWrap(true)
+	tv.SetWordWrap(true)
 	tv.SetDynamicColors(true)
 	tv.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	tv.SetTextStyle(tcell.StyleDefault.

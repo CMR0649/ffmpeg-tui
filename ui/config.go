@@ -25,6 +25,10 @@ type Config struct {
 	VideoFPS     string `json:"video_fps"`     // 帧率
 	CustomParams string `json:"custom_params"` // 自定义参数（追加到视频参数末尾）
 
+	// 滤镜链（从上到下依次应用）
+	VideoFilters []FilterInstance `json:"video_filters"` // -vf
+	AudioFilters []FilterInstance `json:"audio_filters"` // -af
+
 	// 音频
 	AudioEncoder      string `json:"audio_encoder"`       // 编码器
 	AudioBitrate      string `json:"audio_bitrate"`       // 比特率，kbps

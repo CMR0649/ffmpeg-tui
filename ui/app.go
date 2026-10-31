@@ -11,14 +11,25 @@ import (
 )
 
 // Version 是当前版本号
-const Version = "beta1.6"
+const Version = "beta1.7"
 
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
-var tabKeys = []string{"files", "video", "audio", "tasks", "presets", "settings"}
+var tabKeys = []string{"files", "video", "audio", "filters", "tasks", "presets", "settings"}
+
+// 页面索引（与 tabKeys 顺序一致，避免散落的魔法数字）
+const (
+	pageFiles = iota
+	pageVideo
+	pageAudio
+	pageFilters
+	pageTasks
+	pagePresets
+	pageSettings
+)
 
 // tabNames 按当前语言返回标签页显示名
 func (a *App) tabNames() []string {
-	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabTasks, a.s.TabPresets, a.s.TabSettings}
+	return []string{a.s.TabFiles, a.s.TabVideo, a.s.TabAudio, a.s.TabFilters, a.s.TabTasks, a.s.TabPresets, a.s.TabSettings}
 }
 
 // App 组装整个 TUI 界面
@@ -47,6 +58,16 @@ type App struct {
 	taskList          *tview.List
 	taskBarFocusables []tview.Primitive // 任务页 Tab 循环：任务列表 / 添加任务 / 开始 / 清空
 	taskBarButtons    []tview.Primitive // 任务页底部横向按钮组（左右键切换）
+
+	// 滤镜页状态
+	filterVideoList     *tview.List
+	filterAudioList     *tview.List
+	filterCountLabel    *tview.TextView
+	filterBarFocusables []tview.Primitive // 滤镜页 Tab 循环：两条链 / 底部按钮
+	filterBarButtons    []tview.Primitive // 滤镜页底部横向按钮组
+	filtersPage         *tview.Flex       // 滤镜页容器（标题刷新）
+	filterActive        int               // 最近操作的滤镜链
+	filterForm          *filterFormState  // 参数表单对话框状态（打开时非空）
 
 	// 预设页状态
 	presetList          *tview.List
@@ -168,7 +189,8 @@ func (a *App) handleMouse(event *tcell.EventMouse, action tview.MouseAction) (*t
 	if y == 0 {
 		return event, action // 标签栏滚轮
 	}
-	if cur, ok := a.tviewApp.GetFocus().(*tview.List); ok {
+	switch cur := a.tviewApp.GetFocus().(type) {
+	case *tview.List:
 		idx := cur.GetCurrentItem()
 		if action == tview.MouseScrollUp {
 			idx--
@@ -182,6 +204,14 @@ func (a *App) handleMouse(event *tcell.EventMouse, action tview.MouseAction) (*t
 			idx = cur.GetItemCount() - 1
 		}
 		cur.SetCurrentItem(idx)
+		return nil, 0
+	case *wrappedList:
+		// 选项弹窗的可换行列表：滚轮上下移动选中项
+		if action == tview.MouseScrollUp {
+			cur.SetSelected(cur.GetSelected() - 1)
+		} else {
+			cur.SetSelected(cur.GetSelected() + 1)
+		}
 		return nil, 0
 	}
 	return event, action
@@ -228,8 +258,11 @@ func (a *App) focusOnDialogList() bool {
 	if !a.dialogOpen {
 		return false
 	}
-	_, ok := a.tviewApp.GetFocus().(*tview.List)
-	return ok
+	switch a.tviewApp.GetFocus().(type) {
+	case *tview.List, *wrappedList:
+		return true
+	}
+	return false
 }
 
 // moveHorizontalFocus 处理左/右方向键：当焦点位于横向排列的按钮组
@@ -276,8 +309,8 @@ func (a *App) switchTab(i int) {
 	a.renderTabBar()
 	a.renderFooter()
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
-	// 已加载自定义命令时，进入视频/音频页提示是否禁用
-	if a.current == 1 || a.current == 2 {
+	// 已加载自定义命令时，进入视频/音频/滤镜页提示是否禁用
+	if a.current == pageVideo || a.current == pageAudio || a.current == pageFilters {
 		a.promptDisableCustomCmd(nil)
 	}
 }
@@ -303,13 +336,15 @@ func (a *App) promptDisableCustomCmd(then func()) {
 func (a *App) renderFooter() {
 	var t string
 	switch a.current {
-	case 0:
+	case pageFiles:
 		t = a.s.FooterFiles
-	case 1, 2:
+	case pageVideo, pageAudio:
 		t = a.s.FooterVideoAudio
-	case 3:
+	case pageFilters:
+		t = a.s.FooterFilters
+	case pageTasks:
 		t = a.s.FooterTasks
-	case 4:
+	case pagePresets:
 		t = a.s.FooterPresets
 	default:
 		t = a.s.FooterSettings
@@ -327,6 +362,12 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case tcell.KeyTab:
 		if a.dialogOpen {
+			// 参数表单内：Tab 在字段间移动，最后一个字段再按 Tab 才离开表单
+			if a.filterFormFocused() && a.filterFormItemCount() > 0 {
+				if a.filterFormFocusedIndex() < a.filterFormItemCount()-1 {
+					return event
+				}
+			}
 			a.dialogFocusNext()
 			return nil
 		}
@@ -336,11 +377,24 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		}
 	case tcell.KeyBacktab:
 		if a.dialogOpen {
+			if a.filterFormFocused() && a.filterFormItemCount() > 0 && a.filterFormFocusedIndex() > 0 {
+				return event
+			}
 			a.dialogFocusPrev()
 			return nil
 		}
 		if len(a.pageFocusables()) > 0 {
 			a.pageFocusPrev()
+			return nil
+		}
+	case tcell.KeyPgUp, tcell.KeyPgDn:
+		// 参数表单：翻页
+		if a.dialogOpen && a.filterForm != nil {
+			if event.Key() == tcell.KeyPgUp {
+				a.filterFormPrevPage()
+			} else {
+				a.filterFormNextPage()
+			}
 			return nil
 		}
 	case tcell.KeyLeft, tcell.KeyRight:
@@ -399,7 +453,7 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		}
 	case tcell.KeyDelete:
 		// 文件界面：Delete 移除当前选中的文件（并同步文件列表数据）
-		if !a.dialogOpen && a.current == 0 && a.filesList != nil && a.filesList.GetItemCount() > 0 {
+		if !a.dialogOpen && a.current == pageFiles && a.filesList != nil && a.filesList.GetItemCount() > 0 {
 			idx := a.filesList.GetCurrentItem()
 			a.filesList.RemoveItem(idx)
 			if idx >= 0 && idx < len(a.files) {
@@ -407,13 +461,19 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			}
 			return nil
 		}
+		// 滤镜界面：Delete 删除焦点所在链的选中滤镜
+		if !a.dialogOpen && a.current == pageFilters {
+			if a.deleteSelectedFilter() {
+				return nil
+			}
+		}
 		// 预设界面：Delete 删除选中的预设
-		if !a.dialogOpen && a.current == 4 && a.presetList != nil && a.presetList.GetItemCount() > 0 {
+		if !a.dialogOpen && a.current == pagePresets && a.presetList != nil && a.presetList.GetItemCount() > 0 {
 			a.deleteSelectedPreset()
 			return nil
 		}
 		// 任务界面：Delete 终止运行中的任务 / 移除其余任务
-		if !a.dialogOpen && a.current == 3 && a.taskList != nil && a.taskList.GetItemCount() > 0 {
+		if !a.dialogOpen && a.current == pageTasks && a.taskList != nil && a.taskList.GetItemCount() > 0 {
 			a.deleteSelectedTask()
 			return nil
 		}
@@ -434,9 +494,25 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			return event // 对话框打开时，A/D 不切换标签，按键交给对话框
 		}
 		// "/" 在预设页打开预设搜索
-		if event.Rune() == '/' && a.current == 4 && a.presetList != nil {
+		if event.Rune() == '/' && a.current == pagePresets && a.presetList != nil {
 			a.searchPreset()
 			return nil
+		}
+		// "/" 在滤镜页打开滤镜搜索（与添加按钮相同，可搜索后添加）
+		if event.Rune() == '/' && a.current == pageFilters {
+			a.addFilterFocused()
+			return nil
+		}
+		// 滤镜页：+ / = 上移，- 下移
+		if a.current == pageFilters {
+			switch event.Rune() {
+			case '+', '=':
+				a.moveSelectedFilter(-1)
+				return nil
+			case '-':
+				a.moveSelectedFilter(1)
+				return nil
+			}
 		}
 		switch event.Rune() {
 		case 'a', 'A':
@@ -453,15 +529,17 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页 / 预设页）
+// pageFocusables 当前页面的 Tab 焦点循环列表（文件页 / 任务页 / 预设页 / 滤镜页）
 func (a *App) pageFocusables() []tview.Primitive {
 	switch a.current {
-	case 0:
+	case pageFiles:
 		return a.fileBarFocusables
-	case 3:
+	case pageTasks:
 		return a.taskBarFocusables
-	case 4:
+	case pagePresets:
 		return a.presetBarFocusables
+	case pageFilters:
+		return a.filterBarFocusables
 	}
 	return nil
 }
@@ -469,12 +547,14 @@ func (a *App) pageFocusables() []tview.Primitive {
 // pageButtons 当前页面的底部横向按钮组
 func (a *App) pageButtons() []tview.Primitive {
 	switch a.current {
-	case 0:
+	case pageFiles:
 		return a.fileBarButtons
-	case 3:
+	case pageTasks:
 		return a.taskBarButtons
-	case 4:
+	case pagePresets:
 		return a.presetBarButtons
+	case pageFilters:
+		return a.filterBarButtons
 	}
 	return nil
 }
@@ -482,12 +562,14 @@ func (a *App) pageButtons() []tview.Primitive {
 // pageList 当前页面的主列表
 func (a *App) pageList() tview.Primitive {
 	switch a.current {
-	case 0:
+	case pageFiles:
 		return a.filesList
-	case 3:
+	case pageTasks:
 		return a.taskList
-	case 4:
+	case pagePresets:
 		return a.presetList
+	case pageFilters:
+		return a.focusedFilterList()
 	}
 	return nil
 }

@@ -46,6 +46,10 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 			if a.cfg.VideoFPS != "" {
 				args = append(args, "-r", a.cfg.VideoFPS)
 			}
+			// 滤镜：-vf 放在 -r 之后、自定义参数之前
+			if s := filterChainString(a.cfg.VideoFilters); s != "" {
+				args = append(args, "-vf", s)
+			}
 		} else {
 			args = append(args, "-c:v", "copy") // 默认复制流
 		}
@@ -68,6 +72,10 @@ func (a *App) buildCommand(input, output string, hasVideo, hasAudio bool) []stri
 			if a.cfg.BitDepth != "" {
 				// 音频位深：-sample_fmt s[位深]，如 -sample_fmt s16
 				args = append(args, "-sample_fmt", "s"+a.cfg.BitDepth)
+			}
+			// 滤镜：-af 放在 -sample_fmt 之后、自定义参数之前
+			if s := filterChainString(a.cfg.AudioFilters); s != "" {
+				args = append(args, "-af", s)
 			}
 		} else {
 			args = append(args, "-c:a", "copy") // 默认复制流
