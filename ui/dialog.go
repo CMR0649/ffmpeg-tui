@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/rivo/tview"
 )
 
@@ -62,6 +63,62 @@ func (a *App) closeDialog() {
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
 
+// screenSize 返回界面可用尺寸（宽、高），未初始化时给默认值
+func (a *App) screenSize() (int, int) {
+	_, _, w, h := a.rootPages.GetRect()
+	if w <= 0 || h <= 0 {
+		return 80, 24
+	}
+	return w, h
+}
+
+// centeredGrid 把 box 居中放在界面内，宽高不超过界面（留 2 列/行余量）
+func (a *App) centeredGrid(box tview.Primitive, width, height int) *tview.Grid {
+	sw, sh := a.screenSize()
+	if width > sw-2 {
+		width = sw - 2
+	}
+	if height > sh-2 {
+		height = sh - 2
+	}
+	if width < 10 {
+		width = 10
+	}
+	if height < 4 {
+		height = 4
+	}
+	grid := tview.NewGrid()
+	grid.SetColumns(0, width, 0)
+	grid.SetRows(0, height, 0)
+	grid.AddItem(box, 1, 1, 1, 1, 0, 0, true)
+	grid.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	return grid
+}
+
+// dialogTextHeight 返回文本在指定宽度内占用的行数（含换行与自动折行）
+func dialogTextHeight(text string, width int) int {
+	if width < 1 {
+		width = 1
+	}
+	total := 0
+	for _, line := range strings.Split(text, "\n") {
+		n := (runewidth.StringWidth(line) + width - 1) / width
+		if n < 1 {
+			n = 1
+		}
+		total += n
+	}
+	if total < 1 {
+		total = 1
+	}
+	return total
+}
+
+// messageDialogHeight 提示类弹窗高度：文本行数 + 按钮与留白（3）+ 边框（2）
+func (a *App) messageDialogHeight(text string, width int) int {
+	return dialogTextHeight(text, width-2) + 5
+}
+
 func (a *App) buildDialogBox(title string, body tview.Primitive, width, height int, buttons ...*tview.Button) *tview.Grid {
 	btnRow := tview.NewFlex()
 	btnRow.AddItem(nil, 0, 1, false)
@@ -81,12 +138,7 @@ func (a *App) buildDialogBox(title string, body tview.Primitive, width, height i
 	box.SetBorder(true)
 	box.SetTitle("┤ " + title + " ├")
 	box.SetTitleAlign(tview.AlignLeft)
-	grid := tview.NewGrid()
-	grid.SetColumns(0, width, 0)
-	grid.SetRows(0, height, 0)
-	grid.AddItem(box, 1, 1, 1, 1, 0, 0, true)
-	grid.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-	return grid
+	return a.centeredGrid(box, width, height)
 }
 
 type optionDialog struct {
@@ -145,13 +197,10 @@ func (a *App) buildOptionDialog() {
 	})
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
-	// 每个选项占两行（次要文本行），据此计算弹窗高度
-	height := len(d.filtered)*2 + 6
-	if height < 10 {
-		height = 10
-	}
-	if height > 20 {
-		height = 20
+	// 每个选项占两行（次要文本行），据此计算弹窗高度；超界由 centeredGrid 裁剪
+	height := len(d.filtered)*2 + 5
+	if height < 7 {
+		height = 7
 	}
 	a.dialogButtons = []tview.Primitive{ok, cancel}
 	a.showDialog(a.buildDialogBox(d.title, list, 56, height, ok, cancel), []tview.Primitive{list, ok, cancel}, list)
@@ -222,7 +271,12 @@ func (a *App) startOptionSearch() {
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(d.title, body, 62, 16, ok, cancel),
+	// 输入框 1 行 + 间隔 1 行 + 结果列表（每项 2 行）+ 按钮与留白 3 + 边框 2
+	height := len(d.filtered)*2 + 7
+	if height < 9 {
+		height = 9
+	}
+	a.showDialog(a.buildDialogBox(d.title, body, 62, height, ok, cancel),
 		[]tview.Primitive{input, list, ok, cancel}, input)
 }
 
@@ -247,7 +301,8 @@ func (a *App) showInputDialog(title, initial string, confirm func(string)) {
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(title, input, 62, 8, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
+	// 输入框 1 行 + 按钮与留白 3 + 边框 2
+	a.showDialog(a.buildDialogBox(title, input, 62, 6, ok, cancel), []tview.Primitive{input, ok, cancel}, input)
 }
 
 // showMessageDialog 显示提示对话框（单一 [确定] 按钮）
@@ -265,7 +320,8 @@ func (a *App) showMessageDialog(title, text string) {
 	ok.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok}
-	a.showDialog(a.buildDialogBox(title, tv, 60, 8, ok), []tview.Primitive{ok}, ok)
+	// 高度随文本行数（含折行）调整
+	a.showDialog(a.buildDialogBox(title, tv, 60, a.messageDialogHeight(text, 60), ok), []tview.Primitive{ok}, ok)
 }
 
 // showConfirmDialog 显示带 [确定] [取消] 的确认对话框；确定后调用 onOK
@@ -290,7 +346,7 @@ func (a *App) showConfirmDialog(text string, onOK func()) {
 	cancel.SetSelectedFunc(func() { a.closeDialog() })
 
 	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(a.s.Hint, tv, 56, 9, ok, cancel),
+	a.showDialog(a.buildDialogBox(a.s.Hint, tv, 56, a.messageDialogHeight(text, 56), ok, cancel),
 		[]tview.Primitive{tv, ok, cancel}, ok)
 }
 
@@ -330,7 +386,7 @@ func (a *App) pickFileFromSystem() {
 	}
 }
 
-// addFilePath 把文件路径加入文件列表，并异步调用 ffprobe 读取文件信息
+// addFilePath 把文件路径加入文件列表，并异步读取文件信息
 func (a *App) addFilePath(path string) {
 	idx := a.filesList.GetItemCount()
 	a.filesList.AddItem(filepath.Base(path), a.s.ReadingInfo, 0, nil)
@@ -450,32 +506,54 @@ func splitLines(s string) []string {
 	return out
 }
 
-// ---------- ffprobe 文件信息 ----------
+// ---------- 文件信息（ffmpeg -i） ----------
 
-// probeFile 调用 ffprobe（Windows 为 ffprobe.exe）读取媒体文件信息，
-// 返回一行格式化摘要；ffprobe 不可用或解析失败时返回相应提示
+// probeFile 用 `ffmpeg -i` 读取媒体文件信息，返回一行格式化摘要
 func (a *App) probeFile(path string) string {
-	name := a.ffprobeBin()
-	exe, err := exec.LookPath(name)
-	if err != nil {
+	name := a.ffmpegBin()
+	if _, err := exec.LookPath(name); err != nil {
 		return fmt.Sprintf(a.s.NoFFprobe, name)
 	}
-	out, err := exec.Command(exe,
-		"-v", "error",
-		"-show_entries", "format=duration,size,format_name",
-		"-show_entries", "stream=codec_name,codec_type,width,height,avg_frame_rate,sample_rate,channels",
-		"-of", "default",
-		path,
-	).Output()
-	if err != nil {
-		return fmt.Sprintf(a.s.ReadInfoFailed, err.Error())
+	info := a.ffmpegInfo(path)
+	var size int64
+	if fi, err := os.Stat(path); err == nil {
+		size = fi.Size()
 	}
-	return a.formatProbeInfo(string(out))
+	return a.formatMediaInfo(info, size)
 }
 
-// ffprobeBin 返回 ffprobe 可执行文件（跟随 FFmpeg 路径设置）
-func (a *App) ffprobeBin() string {
-	return ffprobeBin(a.cfg)
+// formatMediaInfo 生成如 "H264 · 1280x720 · 30 fps · AAC 44100Hz · 2ch · 00:12 · 1.2 MB" 的摘要
+func (a *App) formatMediaInfo(info *mediaInfo, size int64) string {
+	var parts []string
+	if info.HasVideo {
+		parts = append(parts, strings.ToUpper(info.VideoCodec))
+		if info.Width > 0 && info.Height > 0 {
+			parts = append(parts, fmt.Sprintf("%dx%d", info.Width, info.Height))
+		}
+		if info.FPS > 0 {
+			parts = append(parts, formatFPS(info.FPS))
+		}
+	}
+	if info.HasAudio {
+		p := strings.ToUpper(info.AudioCodec)
+		if info.AudioRate > 0 {
+			p += " " + strconv.Itoa(info.AudioRate) + "Hz"
+		}
+		if info.AudioChannels > 0 {
+			p += " · " + strconv.Itoa(info.AudioChannels) + "ch"
+		}
+		parts = append(parts, p)
+	}
+	if info.Duration > 0 {
+		parts = append(parts, formatDuration(info.Duration))
+	}
+	if size > 0 {
+		parts = append(parts, formatSize(size))
+	}
+	if len(parts) == 0 {
+		return a.s.ParseInfoFailed
+	}
+	return strings.Join(parts, " · ")
 }
 
 // ffmpegBin 返回 ffmpeg 可执行文件（跟随 FFmpeg 路径设置）
@@ -483,126 +561,13 @@ func (a *App) ffmpegBin() string {
 	return ffmpegBin(a.cfg)
 }
 
-// parseFailedText 返回文件信息解析失败的提示
-func (a *App) parseFailedText() string {
-	return a.s.ParseInfoFailed
-}
-
-// formatProbeInfo 解析 ffprobe 的 key=value 输出（含 [STREAM]/[FORMAT] 段落），
-// 生成如 "H.264 · 1920×1080 · 29.97 fps · AAC 48000Hz · 2ch · 00:12:08 · 1.2 GB" 的摘要
-func (a *App) formatProbeInfo(raw string) string {
-	var format map[string]string
-	var streams []map[string]string
-	var cur map[string]string
-	inStream := false
-	for _, line := range strings.Split(raw, "\n") {
-		line = strings.TrimSpace(line)
-		switch line {
-		case "[STREAM]":
-			inStream = true
-			cur = map[string]string{}
-		case "[/STREAM]":
-			inStream = false
-			streams = append(streams, cur)
-			cur = nil
-		case "[FORMAT]":
-			inStream = false
-			format = map[string]string{}
-		case "[/FORMAT]":
-			inStream = false
-		default:
-			if inStream && cur != nil {
-				if i := strings.Index(line, "="); i > 0 {
-					cur[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
-				}
-			} else if format != nil {
-				if i := strings.Index(line, "="); i > 0 {
-					format[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
-				}
-			}
-		}
-	}
-
-	var video, audio map[string]string
-	for _, s := range streams {
-		switch s["codec_type"] {
-		case "video":
-			if video == nil {
-				video = s
-			}
-		case "audio":
-			if audio == nil {
-				audio = s
-			}
-		}
-	}
-
-	var parts []string
-	if video != nil {
-		parts = append(parts, strings.ToUpper(video["codec_name"]))
-		if video["width"] != "" && video["height"] != "" {
-			parts = append(parts, video["width"]+"×"+video["height"])
-		}
-		if fps := parseFPS(video["avg_frame_rate"]); fps > 0 {
-			parts = append(parts, formatFPS(fps))
-		}
-	}
-	if audio != nil {
-		p := strings.ToUpper(audio["codec_name"])
-		if audio["sample_rate"] != "" && audio["sample_rate"] != "0" {
-			p += " " + audio["sample_rate"] + "Hz"
-		}
-		if audio["channels"] != "" && audio["channels"] != "0" {
-			p += " · " + audio["channels"] + "ch"
-		}
-		parts = append(parts, p)
-	}
-	if dur := parseDuration(format["duration"]); dur > 0 {
-		parts = append(parts, formatDuration(dur))
-	}
-	if size := parseSize(format["size"]); size > 0 {
-		parts = append(parts, formatSize(size))
-	}
-	if len(parts) == 0 {
-		return a.parseFailedText()
-	}
-	return strings.Join(parts, " · ")
-}
-
-// formatFPS 格式化帧率：整数显示为 "25 fps"，否则保留两位小数（如 "29.97 fps"）
+// formatFPS 格式化帧率：整数显示为 "25 fps"，非整数最多保留三位小数（如 23.976 fps）
 func formatFPS(fps float64) string {
 	if fps == math.Trunc(fps) {
 		return fmt.Sprintf("%.0f fps", fps)
 	}
-	return fmt.Sprintf("%.2f fps", fps)
-}
-
-// parseFPS 解析 ffprobe 的帧率（如 "30000/1001" 或 "30"），无法解析时返回 0
-func parseFPS(rate string) float64 {
-	if rate == "" || rate == "0/0" || rate == "N/A" {
-		return 0
-	}
-	if p := strings.Split(rate, "/"); len(p) == 2 {
-		n, err1 := strconv.ParseFloat(p[0], 64)
-		d, err2 := strconv.ParseFloat(p[1], 64)
-		if err1 == nil && err2 == nil && d > 0 {
-			return n / d
-		}
-	}
-	f, err := strconv.ParseFloat(rate, 64)
-	if err != nil || f <= 0 {
-		return 0
-	}
-	return f
-}
-
-// parseDuration 解析时长（秒），无效时返回 0
-func parseDuration(d string) float64 {
-	f, err := strconv.ParseFloat(d, 64)
-	if err != nil || f <= 0 {
-		return 0
-	}
-	return f
+	s := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", fps), "0"), ".")
+	return s + " fps"
 }
 
 // formatDuration 把秒数格式化为 00:12:08 / 00:45
@@ -615,15 +580,6 @@ func formatDuration(seconds float64) string {
 		return fmt.Sprintf("%02d:%02d:%02d", h, m, sec)
 	}
 	return fmt.Sprintf("%02d:%02d", m, sec)
-}
-
-// parseSize 解析文件大小（字节），无效时返回 0
-func parseSize(size string) int64 {
-	n, err := strconv.ParseInt(size, 10, 64)
-	if err != nil || n <= 0 {
-		return 0
-	}
-	return n
 }
 
 // formatSize 把字节数格式化为 MB / GB

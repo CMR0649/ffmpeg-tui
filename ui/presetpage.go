@@ -169,11 +169,8 @@ func (a *App) showSavePresetDialog() {
 	box.SetTitle("┤ " + a.s.SavePresetTitle + " ├")
 	box.SetTitleAlign(tview.AlignLeft)
 
-	grid := tview.NewGrid()
-	grid.SetColumns(0, 54, 0)
-	grid.SetRows(0, 7, 0)
-	grid.AddItem(box, 1, 1, 1, 1, 0, 0, true)
-	grid.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	// 内容 5 行 + 边框 2 行；宽高由 centeredGrid 限制在界面内
+	grid := a.centeredGrid(box, 54, 7)
 
 	a.dialogButtons = []tview.Primitive{cancel, ok}
 	a.showDialog(grid, []tview.Primitive{input, cancel, ok}, input)

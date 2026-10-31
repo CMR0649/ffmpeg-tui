@@ -54,7 +54,7 @@ type Strings struct {
 	TaskShowCmd, CmdLabel, CmdReturnHint           string
 	TaskSavedTo, TaskLogSavedTo                    string
 	// 任务进度（frame= 行解析）
-	FrameCount, FrameFPS, FrameBitrate, FrameSpeed string
+	ProgBitrate, ProgRate, ProgETA string
 	// 预设页
 	PresetsTitle                                           string
 	SavePreset, SavePresetTitle                            string
@@ -127,7 +127,7 @@ var zh = &Strings{
 	TaskWaiting: "等待中", TaskRunning: "转码中", TaskDone: "已完成", TaskFailed: "失败",
 	NoFilesToTask: "请先在文件页添加输入文件",
 	TaskShowCmd:   "[显示命令]", CmdLabel: "命令:", CmdReturnHint: "按下回车或空格返回...", TaskSavedTo: "保存到", TaskLogSavedTo: "日志保存至",
-	FrameCount: "已处理帧", FrameFPS: "帧处理速率", FrameBitrate: "比特率", FrameSpeed: "速率",
+	ProgBitrate: "比特率: ", ProgRate: "速率: ", ProgETA: "预计需要",
 	PresetsTitle: " 预设 ",
 	SavePreset:   "[保存预设]", SavePresetTitle: "保存预设",
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
@@ -206,7 +206,7 @@ var en = &Strings{
 	TaskWaiting: "Waiting", TaskRunning: "Running", TaskDone: "Done", TaskFailed: "Failed",
 	NoFilesToTask: "Please add input files on the Files page first.",
 	TaskShowCmd:   "[Show command]", CmdLabel: "Command:", CmdReturnHint: "Press Enter or Space to return...", TaskSavedTo: "Saved to ", TaskLogSavedTo: "Log saved to ",
-	FrameCount: "frame", FrameFPS: "fps", FrameBitrate: "bitrate", FrameSpeed: "speed",
+	ProgBitrate: "Bitrate: ", ProgRate: "Rate: ", ProgETA: "ETA ",
 	PresetsTitle: " Presets ",
 	SavePreset:   "[Save preset]", SavePresetTitle: "Save preset",
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",

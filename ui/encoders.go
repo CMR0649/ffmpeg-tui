@@ -60,34 +60,12 @@ func ffmpegBin(cfg *Config) string {
 	return "ffmpeg"
 }
 
-// ffprobeBin 返回 ffprobe 可执行文件路径
-// FFmpegPath 按 bin 目录处理，取同目录下的 ffprobe（Windows 为 ffprobe.exe）；
-// 仅当路径为已存在的文件时取同目录下的 ffprobe（兼容旧配置）；
-// 为空时用系统 PATH
-func ffprobeBin(cfg *Config) string {
-	if cfg != nil && cfg.FFmpegPath != "" {
-		if isFile(cfg.FFmpegPath) {
-			return filepath.Join(filepath.Dir(cfg.FFmpegPath), ffprobeExeName())
-		}
-		return filepath.Join(cfg.FFmpegPath, ffprobeExeName())
-	}
-	return ffprobeExeName()
-}
-
 // ffmpegExeName ffmpeg 可执行文件名（Windows 带 .exe）
 func ffmpegExeName() string {
 	if runtime.GOOS == "windows" {
 		return "ffmpeg.exe"
 	}
 	return "ffmpeg"
-}
-
-// ffprobeExeName ffprobe 可执行文件名（Windows 带 .exe）
-func ffprobeExeName() string {
-	if runtime.GOOS == "windows" {
-		return "ffprobe.exe"
-	}
-	return "ffprobe"
 }
 
 // isFile 报告路径是否为已存在的普通文件

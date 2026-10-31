@@ -26,6 +26,7 @@ type Task struct {
 	Progress float64
 	ErrMsg   string // 失败原因
 	duration float64
+	videoFPS float64 // 视频帧率（用于估算进度与预计时间）
 	hasVideo bool
 	hasAudio bool
 	index    int
@@ -80,14 +81,15 @@ func (a *App) addTasksFromFiles() {
 	}
 	a.tasks = nil
 	for _, input := range a.files {
-		hasVideo, hasAudio := a.probeStreams(input)
+		info := a.ffmpegInfo(input)
 		t := &Task{
 			Input:    input,
 			Output:   a.outputPath(input),
 			Status:   "waiting",
-			duration: a.probeDuration(input),
-			hasVideo: hasVideo,
-			hasAudio: hasAudio,
+			duration: info.Duration,
+			videoFPS: info.FPS,
+			hasVideo: info.HasVideo,
+			hasAudio: info.HasAudio,
 		}
 		a.tasks = append(a.tasks, t)
 	}
@@ -121,26 +123,71 @@ func (a *App) taskSecondaryText(t *Task) string {
 	}
 }
 
-// taskProgressText 转码中的实时数据显示：仅接受以 frame= 开头的行，
-// 展示 frame/fps/bitrate/speed；中文用对应汉字段名，英文用原文
+// totalFrames 视频总帧数（视频帧率 × 时长），无法确定时返回 0
+func (t *Task) totalFrames() float64 {
+	if t.videoFPS <= 0 || t.duration <= 0 {
+		return 0
+	}
+	return t.videoFPS * t.duration
+}
+
+// progressPercent 进度：已处理帧 / 视频总帧数 × 100，无法计算时返回 0
+func (t *Task) progressPercent() float64 {
+	total := t.totalFrames()
+	if total <= 0 {
+		return 0
+	}
+	n, err := strconv.ParseFloat(t.frameCount, 64)
+	if err != nil {
+		return 0
+	}
+	p := n / total * 100
+	if p < 0 {
+		p = 0
+	}
+	if p > 100 {
+		p = 100
+	}
+	return p
+}
+
+// etaSeconds 预计需要时间：视频帧率 × 时长 / 帧处理速率，无法计算时返回 0
+func (t *Task) etaSeconds() float64 {
+	total := t.totalFrames()
+	if total <= 0 {
+		return 0
+	}
+	rate, err := strconv.ParseFloat(t.fps, 64)
+	if err != nil || rate <= 0 {
+		return 0
+	}
+	return total / rate
+}
+
+// taskProgressText 转码中的实时数据显示：
+// 「进度%  比特率: …  速率: …fps (…x)  预计需要…」
 func (a *App) taskProgressText(t *Task) string {
 	if t.frameCount == "" && t.fps == "" && t.bitrate == "" && t.speed == "" {
 		return a.s.TaskRunning
 	}
 	var parts []string
-	if t.frameCount != "" {
-		parts = append(parts, a.s.FrameCount+"="+t.frameCount)
-	}
-	if t.fps != "" {
-		parts = append(parts, a.s.FrameFPS+"="+t.fps)
+	if t.totalFrames() > 0 {
+		parts = append(parts, fmt.Sprintf("%.0f%%", t.progressPercent()))
 	}
 	if t.bitrate != "" {
-		parts = append(parts, a.s.FrameBitrate+"="+t.bitrate)
+		parts = append(parts, a.s.ProgBitrate+t.bitrate)
 	}
-	if t.speed != "" {
-		parts = append(parts, a.s.FrameSpeed+"="+t.speed)
+	if t.fps != "" {
+		s := a.s.ProgRate + t.fps + "fps"
+		if t.speed != "" {
+			s += " (" + t.speed + ")"
+		}
+		parts = append(parts, s)
 	}
-	return strings.Join(parts, "  ")
+	if eta := t.etaSeconds(); eta > 0 {
+		parts = append(parts, a.s.ProgETA+formatHMS(eta))
+	}
+	return strings.Join(parts, " ")
 }
 
 // updateTask 更新单个任务在列表中的显示
@@ -303,14 +350,16 @@ func (a *App) openTaskTarget(t *Task) {
 	}
 }
 
-// customCmdRe 匹配自定义命令中的 output.*/output.<后缀> 与 input 占位符
-var customCmdRe = regexp.MustCompile(`output\.(\*|[A-Za-z0-9]+)|input`)
+// customCmdRe 匹配自定义命令中的占位符：
+// {input}、{output.*}、{output.<后缀>}（兼容旧的 input / output.<后缀> 写法）
+var customCmdRe = regexp.MustCompile(`\{(input|output\.[^}]*)\}|output\.(\*|[A-Za-z0-9]+)|input`)
 
 // resolveCustomCommand 替换自定义命令中的占位符：
-// output.* → 输出文件；input → 输入文件；ffmpeg → 设置指定的 ffmpeg（若有）
+// {output.*}/{output.<后缀>} → 输出文件；{input} → 输入文件；
+// ffmpeg → 设置指定的 ffmpeg（若有）
 func (a *App) resolveCustomCommand(tpl, input, output string) string {
 	s := customCmdRe.ReplaceAllStringFunc(tpl, func(m string) string {
-		if strings.HasPrefix(m, "output") {
+		if strings.Contains(m, "output") {
 			return output
 		}
 		return input
@@ -364,15 +413,23 @@ func (a *App) resolvedArgs(t *Task) []string {
 		a.buildCommand(t.Input, t.Output, t.hasVideo, t.hasAudio)...)
 }
 
-// taskCommandString 生成任务命令（输入以 input 代替，输出以 output.后缀 代替）；
+// taskCommandString 生成任务命令（输入以 {input} 代替，输出以 {output.后缀} 代替）；
 // 自定义命令直接显示其模板
 func (a *App) taskCommandString(t *Task) string {
 	if a.customCmd != "" {
 		return a.customCmd
 	}
-	out := "output" + filepath.Ext(t.Output)
-	args := a.buildCommand("input", out, t.hasVideo, t.hasAudio)
+	out := outputPlaceholder(filepath.Ext(t.Output))
+	args := a.buildCommand("{input}", out, t.hasVideo, t.hasAudio)
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
+}
+
+// outputPlaceholder 输出占位符：{output.后缀}（无后缀时为 {output}）
+func outputPlaceholder(ext string) string {
+	if ext == "" {
+		return "{output}"
+	}
+	return "{output" + ext + "}"
 }
 
 // showTaskCommand 在终端中以 CLI 形式显示命令：有选中任务时按该任务生成，
@@ -414,35 +471,18 @@ func waitAnyKey() {
 	_, _ = os.Stdin.Read(buf)
 }
 
-// currentCommandString 按当前配置生成命令（输入 input，输出 output.后缀）；
+// currentCommandString 按当前配置生成命令（输入 {input}，输出 {output.后缀}）；
 // 已加载自定义命令时显示其模板
 func (a *App) currentCommandString() string {
 	if a.customCmd != "" {
 		return a.customCmd
 	}
-	out := "output"
+	ext := ""
 	if a.cfg.OutputContainer != "" {
-		out += "." + containerExt(a.cfg.OutputContainer)
+		ext = "." + containerExt(a.cfg.OutputContainer)
 	}
-	args := a.buildCommand("input", out, true, true)
+	args := a.buildCommand("{input}", outputPlaceholder(ext), true, true)
 	return a.ffmpegBin() + " " + strings.Join(args, " ")
-}
-
-// probeStreams 用 ffprobe 检测输入文件的视频/音频流
-func (a *App) probeStreams(path string) (hasVideo, hasAudio bool) {
-	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1", path).Output()
-	if err != nil {
-		return false, false
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		switch strings.TrimSpace(line) {
-		case "codec_type=video":
-			hasVideo = true
-		case "codec_type=audio":
-			hasAudio = true
-		}
-	}
-	return hasVideo, hasAudio
 }
 
 // clearFinishedTasks 清空已完成与失败的任务
@@ -455,22 +495,6 @@ func (a *App) clearFinishedTasks() {
 	}
 	a.tasks = kept
 	a.refreshTasks()
-}
-
-// probeDuration 用 ffprobe 获取媒体时长（秒）
-func (a *App) probeDuration(path string) float64 {
-	out, err := exec.Command(a.ffprobeBin(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1", path).Output()
-	if err != nil {
-		return 0
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "duration=") {
-			f, _ := strconv.ParseFloat(strings.TrimPrefix(line, "duration="), 64)
-			return f
-		}
-	}
-	return 0
 }
 
 // buildTasksPage 构建「任务」页：任务列表 + 底部操作栏
