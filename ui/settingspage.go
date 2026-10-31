@@ -146,19 +146,30 @@ func (a *App) ffmpegPathLabel() string {
 	return a.cfg.FFmpegPath
 }
 
-// editLanguage 切换界面语言（中文 / English）
+// editLanguage 切换界面语言：内置中文/English + <配置目录>/lang/*.lang
 func (a *App) editLanguage() {
-	a.showOptionDialog(a.s.Language, []string{a.s.LangZh, a.s.LangEn}, func(i int) {
-		if i == 0 {
-			a.setLanguage("zh")
-		} else {
-			a.setLanguage("en")
+	reloadLangPacks()
+	labels := []string{a.s.LangZh, a.s.LangEn}
+	ids := []string{"zh", "en"}
+	for _, p := range langPacks {
+		labels = append(labels, p.Name+"（"+p.ID+"）")
+		ids = append(ids, p.ID)
+	}
+	a.showOptionDialog(a.s.Language, labels, func(i int) {
+		if i >= 0 && i < len(ids) {
+			a.setLanguage(ids[i])
 		}
 	})
 }
 
-// languageLabel 语言项的当前值显示
+// languageLabel 语言项的当前值显示：内置语言显示「中文 / English」，
+// lang 包显示其语言名
 func (a *App) languageLabel() string {
+	if a.lang != "zh" && a.lang != "en" {
+		if pack := findLangPack(a.lang); pack != nil {
+			return pack.Name
+		}
+	}
 	return langStrings(a.lang).LangZh + " / " + langStrings(a.lang).LangEn
 }
 
@@ -194,8 +205,7 @@ func (a *App) refreshAllUI() {
 // setLanguage 切换语言并刷新所有界面文本
 func (a *App) setLanguage(lang string) {
 	a.cfg.Lang = lang
-	a.lang = lang
-	a.s = langStrings(lang)
+	a.applyLanguage()
 	a.refreshAllUI()
 }
 
@@ -226,8 +236,7 @@ func (a *App) loadConfig() {
 			return
 		}
 		// 配置可能包含语言设置，重新应用语言并完整重建界面
-		a.lang = effectiveLang(a.cfg.Lang)
-		a.s = langStrings(a.lang)
+		a.applyLanguage()
 		a.refreshAllUI()
 		a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.Loaded, path))
 	})

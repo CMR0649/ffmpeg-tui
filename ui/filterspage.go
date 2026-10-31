@@ -361,7 +361,7 @@ func (a *App) rebuildFilterForm() {
 
 // addFilterFormItem 按参数类型添加控件
 func (a *App) addFilterFormItem(d *filterFormState, p filterParamInfo) {
-	label := a.filterParamLabel(d.filter, p)
+	label := a.filterParamLabel(p)
 	if d := filterDefaultLabel(p); d != "" {
 		label += " = " + d
 	}

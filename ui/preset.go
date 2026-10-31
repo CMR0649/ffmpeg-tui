@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -96,14 +95,7 @@ func (p *Preset) applyTo(c *Config) {
 // presetDir 预设默认保存目录：Windows 为 <用户>\Documents\ffmpeg-tui\preset，
 // 其余平台为用户配置目录下的 preset。
 func presetDir() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(windowsBaseDir(), "preset")
-	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		dir = "."
-	}
-	return filepath.Join(dir, "ffmpeg-tui", "preset")
+	return filepath.Join(baseDir(), "preset")
 }
 
 // presetSaveDir 预设保存目录：便携模式（当前目录有 config.json）下为当前目录的 preset，

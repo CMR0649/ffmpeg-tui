@@ -13,7 +13,7 @@ type Strings struct {
 	// 底部按键提示（按页面）
 	FooterFiles, FooterVideoAudio, FooterFilters, FooterPresets, FooterSettings, FooterTasks string
 	// 通用
-	OK, Cancel, Search, Hint string
+	OK, Cancel, Hint string
 	// 滤镜页
 	FiltersTitle, FilterVideoChain, FilterAudioChain     string
 	FilterAddVideo, FilterAddAudio                       string
@@ -33,20 +33,16 @@ type Strings struct {
 	InputPath       string
 	PickFile        string
 	ReadingInfo     string
-	NoFFprobe       string
-	ReadInfoFailed  string
+	NoFFmpeg        string
 	ParseInfoFailed string
 	// 视频页
 	VideoTitle, Encoder, Decoder, Preset, QualityMode, Quality, BitrateBase, BitrateMax, BitrateMin, Resolution, FPS string
 	CustomParams                                                                                                     string
 	// 质量模式（键 → 显示）
-	QualityCRF, QualityVBR, QualityCBR string
-	QualityUnsupported                 string
 	// 音频页
 	AudioTitle, AudioEncoder, AudioBitrate, SampleRate, BitDepth string
 	Unspecified                                                  string
 	Disable                                                      string
-	WavSync                                                      string
 	// 设置页
 	SettingsTitle, OutputOption, Suffix, ExportCfg, LoadCfg, SetDefaultCfg, FFmpegPath, Language, About string
 	RestoreDefaults                                                                                     string
@@ -75,13 +71,10 @@ type Strings struct {
 	ContainerTitle  string
 	ContainerFailed string
 	// 对话框提示
-	PresetUnsupported     string
-	QualityUnsupportedMsg string
-	QualityCRFOnlyMsg     string
+	PresetUnsupported string
 	// 关于
 	AboutTitle, AboutLine1, AboutLine2, AboutLine3, AboutGitHub string
 	// 其他
-	FFmpegNotFound                                                                  string
 	SaveCfgFailed, Exported, LoadCfgFailed, Loaded, SaveDefaultFailed, SavedDefault string
 }
 
@@ -105,7 +98,7 @@ var zh = &Strings{
 	FilterParamsTitle: "滤镜参数", FilterPreview: "预览：",
 	FilterValueInvalid: "参数 %s 的值无效：%s",
 	FilterListFailed:   "无法获取滤镜列表", FilterPickHint: "（回车选择文件）",
-	OK: "确定", Cancel: "取消", Search: "搜索", Hint: "提示",
+	OK: "确定", Cancel: "取消", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
 	OutputDirTitle:  "输出目录（$file 为输入文件目录）",
@@ -116,22 +109,18 @@ var zh = &Strings{
 	InputPath:       "输入路径",
 	PickFile:        "选择文件",
 	ReadingInfo:     "正在读取文件信息…",
-	NoFFprobe:       "未找到 %s，无法读取文件信息",
-	ReadInfoFailed:  "无法读取文件信息：%s",
+	NoFFmpeg:        "未找到 %s，无法读取文件信息",
 	ParseInfoFailed: "未能解析文件信息",
 	VideoTitle:      " 视频 — 编码选项 ",
 	Encoder:         "编码器", Decoder: "解码器", Preset: "预设",
 	QualityMode: "控制方式", Quality: "质量",
 	BitrateBase: "基础比特率", BitrateMax: "最高比特率", BitrateMin: "最低比特率",
 	Resolution: "分辨率", FPS: "帧率",
-	QualityCRF: "恒定质量 CRF", QualityVBR: "可变码率 VBR", QualityCBR: "固定码率 CBR",
-	QualityUnsupported: "编码器不支持",
-	CustomParams:       "自定义参数",
-	AudioTitle:         " 音频 — 编码选项 ",
-	AudioEncoder:       "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
+	CustomParams: "自定义参数",
+	AudioTitle:   " 音频 — 编码选项 ",
+	AudioEncoder: "编码器", AudioBitrate: "比特率", SampleRate: "采样率", BitDepth: "位深度",
 	Unspecified:     "未指定",
 	Disable:         "禁用",
-	WavSync:         "位深度",
 	SettingsTitle:   " 设置 ",
 	ParallelTasks:   "并行任务数",
 	RestoreDefaults: "恢复默认配置", RestoreDefaultsConfirm: "确定恢复默认配置吗？",
@@ -154,27 +143,24 @@ var zh = &Strings{
 	OpenPresetDir: "[打开预设文件夹]", SavePresetName: "预设名称",
 	AddCustomCmd: "[添加自定义命令]", CustomCmdInput: "自定义命令",
 	LoadedPreset: "已加载预设%s", CustomCmdActive: "已加载自定义命令，是否禁用",
-	SearchPreset:          "搜索预设",
-	SavePresetFailed:      "无法保存预设：\n%s",
-	LoadPresetFailed:      "无法加载预设：\n%s",
-	DeletePresetFailed:    "无法删除预设：\n%s",
-	ContainerTitle:        "输出容器",
-	ContainerFailed:       "无法获取容器格式列表",
-	PresetUnsupported:     "当前编码器不提供 preset 选项",
-	QualityUnsupportedMsg: "当前编码器不支持设置质量值",
-	QualityCRFOnlyMsg:     "质量值仅在恒定质量（CRF）模式下可设置",
-	AboutTitle:            "关于",
-	AboutLine1:            "FFmpeg-TUI",
-	AboutLine2:            "%s",
-	AboutLine3:            "本软件是免费的自由软件",
-	AboutGitHub:           "GitHub",
-	FFmpegNotFound:        "未找到 %s，无法读取文件信息",
-	SaveCfgFailed:         "无法保存配置文件：\n%s",
-	Exported:              "配置已导出到：\n%s",
-	LoadCfgFailed:         "无法加载配置文件：\n%s",
-	Loaded:                "已加载配置：\n%s",
-	SaveDefaultFailed:     "无法保存配置：\n%s",
-	SavedDefault:          "当前配置已保存为：\n%s",
+	SearchPreset:       "搜索预设",
+	SavePresetFailed:   "无法保存预设：\n%s",
+	LoadPresetFailed:   "无法加载预设：\n%s",
+	DeletePresetFailed: "无法删除预设：\n%s",
+	ContainerTitle:     "输出容器",
+	ContainerFailed:    "无法获取容器格式列表",
+	PresetUnsupported:  "当前编码器不提供 preset 选项",
+	AboutTitle:         "关于",
+	AboutLine1:         "FFmpeg-TUI",
+	AboutLine2:         "%s",
+	AboutLine3:         "本软件是免费的自由软件",
+	AboutGitHub:        "GitHub",
+	SaveCfgFailed:      "无法保存配置文件：\n%s",
+	Exported:           "配置已导出到：\n%s",
+	LoadCfgFailed:      "无法加载配置文件：\n%s",
+	Loaded:             "已加载配置：\n%s",
+	SaveDefaultFailed:  "无法保存配置：\n%s",
+	SavedDefault:       "当前配置已保存为：\n%s",
 }
 
 var en = &Strings{
@@ -197,7 +183,7 @@ var en = &Strings{
 	FilterParamsTitle: "Filter parameters", FilterPreview: "Preview: ",
 	FilterValueInvalid: "Invalid value for %s: %s",
 	FilterListFailed:   "Cannot get filter list", FilterPickHint: " (Enter to pick a file)",
-	OK: "OK", Cancel: "Cancel", Search: "Search", Hint: "Notice",
+	OK: "OK", Cancel: "Cancel", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
 	OutputDirTitle:  "Output directory ($file = input file directory)",
@@ -208,22 +194,18 @@ var en = &Strings{
 	InputPath:       "Enter path",
 	PickFile:        "Pick file",
 	ReadingInfo:     "Reading file info…",
-	NoFFprobe:       "%s not found, cannot read file info",
-	ReadInfoFailed:  "Cannot read file info: %s",
+	NoFFmpeg:        "%s not found, cannot read file info",
 	ParseInfoFailed: "Failed to parse file info",
 	VideoTitle:      " Video — Encoding Options ",
 	Encoder:         "Encoder", Decoder: "Decoder", Preset: "Preset",
 	QualityMode: "Rate control", Quality: "Quality",
 	BitrateBase: "Base bitrate", BitrateMax: "Max bitrate", BitrateMin: "Min bitrate",
 	Resolution: "Resolution", FPS: "Frame rate",
-	QualityCRF: "Constant Quality CRF", QualityVBR: "Variable Bitrate VBR", QualityCBR: "Constant Bitrate CBR",
-	QualityUnsupported: "Not supported by encoder",
-	CustomParams:       "Custom parameters",
-	AudioTitle:         " Audio — Encoding Options ",
-	AudioEncoder:       "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
+	CustomParams: "Custom parameters",
+	AudioTitle:   " Audio — Encoding Options ",
+	AudioEncoder: "Encoder", AudioBitrate: "Bitrate", SampleRate: "Sample rate", BitDepth: "Bit depth",
 	Unspecified:     "Unspecified",
 	Disable:         "Disable",
-	WavSync:         "Bit depth",
 	SettingsTitle:   " Settings ",
 	ParallelTasks:   "Parallel tasks",
 	RestoreDefaults: "Restore defaults", RestoreDefaultsConfirm: "Restore the default configuration?",
@@ -246,27 +228,24 @@ var en = &Strings{
 	OpenPresetDir: "[Open preset folder]", SavePresetName: "Preset name",
 	AddCustomCmd: "[Add custom command]", CustomCmdInput: "Custom command",
 	LoadedPreset: "Preset loaded: %s", CustomCmdActive: "A custom command is loaded. Disable it?",
-	SearchPreset:          "Search preset",
-	SavePresetFailed:      "Cannot save preset:\n%s",
-	LoadPresetFailed:      "Cannot load preset:\n%s",
-	DeletePresetFailed:    "Cannot delete preset:\n%s",
-	ContainerTitle:        "Output container",
-	ContainerFailed:       "Cannot get container formats",
-	PresetUnsupported:     "This encoder has no preset option",
-	QualityUnsupportedMsg: "This encoder does not support a quality value.",
-	QualityCRFOnlyMsg:     "Quality value is only available in Constant Quality (CRF) mode.",
-	AboutTitle:            "About",
-	AboutLine1:            "FFmpeg-TUI",
-	AboutLine2:            "%s",
-	AboutLine3:            "This software is free software.",
-	AboutGitHub:           "GitHub",
-	FFmpegNotFound:        "%s not found, cannot read file info",
-	SaveCfgFailed:         "Cannot save config file:\n%s",
-	Exported:              "Config exported to:\n%s",
-	LoadCfgFailed:         "Cannot load config file:\n%s",
-	Loaded:                "Config loaded from:\n%s",
-	SaveDefaultFailed:     "Cannot save config:\n%s",
-	SavedDefault:          "Saved current config:\n%s",
+	SearchPreset:       "Search preset",
+	SavePresetFailed:   "Cannot save preset:\n%s",
+	LoadPresetFailed:   "Cannot load preset:\n%s",
+	DeletePresetFailed: "Cannot delete preset:\n%s",
+	ContainerTitle:     "Output container",
+	ContainerFailed:    "Cannot get container formats",
+	PresetUnsupported:  "This encoder has no preset option",
+	AboutTitle:         "About",
+	AboutLine1:         "FFmpeg-TUI",
+	AboutLine2:         "%s",
+	AboutLine3:         "This software is free software.",
+	AboutGitHub:        "GitHub",
+	SaveCfgFailed:      "Cannot save config file:\n%s",
+	Exported:           "Config exported to:\n%s",
+	LoadCfgFailed:      "Cannot load config file:\n%s",
+	Loaded:             "Config loaded from:\n%s",
+	SaveDefaultFailed:  "Cannot save config:\n%s",
+	SavedDefault:       "Saved current config:\n%s",
 }
 
 // detectLang 检测界面语言：环境变量优先，其次 Linux 的 /etc/locale.conf；
@@ -331,17 +310,18 @@ func localeConfLang() string {
 	return ""
 }
 
-// langStrings 返回指定语言的字符串表
+// langStrings 返回内置字符串表：zh* 用中文，其余一律英文
 func langStrings(lang string) *Strings {
-	if lang == "en" {
-		return en
+	if langMatchesZh(lang) {
+		return zh
 	}
-	return zh
+	return en
 }
 
-// effectiveLang 计算当前语言：配置显式设置优先，否则按检测结果（默认英文）
+// effectiveLang 计算当前语言：配置显式设置优先（可为 lang 包标识符），
+// 否则按环境与 locale 检测（默认英文）
 func effectiveLang(cfgLang string) string {
-	if cfgLang == "zh" || cfgLang == "en" {
+	if cfgLang != "" {
 		return cfgLang
 	}
 	return detectLang()

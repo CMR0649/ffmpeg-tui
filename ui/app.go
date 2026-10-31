@@ -11,7 +11,7 @@ import (
 )
 
 // Version 是当前版本号
-const Version = "beta1.7"
+const Version = "beta1.8"
 
 // tabKeys 标签页稳定 key（不随语言变化，用于页面注册与切换）
 var tabKeys = []string{"files", "video", "audio", "filters", "tasks", "presets", "settings"}
@@ -76,13 +76,15 @@ type App struct {
 	presetBarButtons    []tview.Primitive // 预设页底部横向按钮组（左右键切换）
 
 	// 配置与各选项页
-	cfg          *Config
-	lang         string // 当前语言：zh / en
-	s            *Strings
-	customCmd    string // 已加载的自定义命令模板（空 = 未加载）
-	videoList    *tview.List
-	audioList    *tview.List
-	settingsList *tview.List
+	cfg             *Config
+	lang            string // 当前语言：zh / en
+	s               *Strings
+	customCmd       string            // 已加载的自定义命令模板（空 = 未加载）
+	langReplace     map[string]string // 语言包的强制替换表（{{ }} 块）
+	langNormReplace map[string]string // 空白归一后的替换表（兜底匹配）
+	videoList       *tview.List
+	audioList       *tview.List
+	settingsList    *tview.List
 
 	// 对话框状态
 	dialogOpen       bool
@@ -113,8 +115,8 @@ func NewApp() *App {
 	}
 
 	// 语言：配置显式设置优先，否则按环境变量
-	a.lang = effectiveLang(a.cfg.Lang)
-	a.s = langStrings(a.lang)
+	reloadLangPacks()
+	a.applyLanguage()
 
 	// 编码器/解码器列表（用配置指定的 ffmpeg 路径）
 	loadCodecLists(a.ffmpegBin())

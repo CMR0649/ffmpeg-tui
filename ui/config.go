@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -70,8 +69,9 @@ func portableMode() bool {
 	return fileExists(cwdConfigPath())
 }
 
-// windowsBaseDir Windows 下 ffmpeg-tui 的默认目录：<用户>\Documents\ffmpeg-tui
-func windowsBaseDir() string {
+// baseDir 配置、预设与语言文件的基础目录：各平台统一为 <用户>/Documents/ffmpeg-tui。
+// 目录不存在时由使用方（保存配置/预设）按需创建。
+func baseDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return filepath.Join(".", "ffmpeg-tui")
@@ -79,18 +79,25 @@ func windowsBaseDir() string {
 	return filepath.Join(home, "Documents", "ffmpeg-tui")
 }
 
+// langDir 自定义语言文件的默认目录：<用户>/Documents/ffmpeg-tui/lang
+func langDir() string {
+	return filepath.Join(baseDir(), "lang")
+}
+
+// langDirs 语言文件目录：与预设一致，当前目录的 lang 优先，其次默认目录（去重）
+func langDirs() []string {
+	dirs := []string{filepath.Join(".", "lang")}
+	if def := langDir(); filepath.Clean(def) != filepath.Clean(dirs[0]) {
+		dirs = append(dirs, def)
+	}
+	return dirs
+}
+
 // defaultConfigPath 返回默认配置文件保存路径：
 // Windows 为 <用户>\Documents\ffmpeg-tui\config.json，
 // 其余平台为用户配置目录下的 ffmpeg-tui/config.json。
 func defaultConfigPath() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(windowsBaseDir(), "config.json")
-	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		dir = "."
-	}
-	return filepath.Join(dir, "ffmpeg-tui", "config.json")
+	return filepath.Join(baseDir(), "config.json")
 }
 
 // configSavePath 返回配置文件保存路径：便携模式（当前目录有 config.json）下为当前目录，

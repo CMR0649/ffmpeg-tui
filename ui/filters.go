@@ -320,47 +320,11 @@ func filterFilePathParam(filter, key string) bool {
 	return false
 }
 
-// filterParamDescZh 常用滤镜参数的中文说明（仅中文界面使用，不替代动态解析）
-var filterParamDescZh = map[string]string{
-	"crop.w":                "输出宽度",
-	"crop.h":                "输出高度",
-	"crop.x":                "左上角横坐标",
-	"crop.y":                "左上角纵坐标",
-	"scale.w":               "输出宽度",
-	"scale.h":               "输出高度",
-	"fps.fps":               "目标帧率",
-	"drawtext.text":         "绘制文本",
-	"drawtext.fontsize":     "字号",
-	"drawtext.fontcolor":    "字体颜色",
-	"drawtext.fontfile":     "字体文件",
-	"drawtext.x":            "文本横坐标",
-	"drawtext.y":            "文本纵坐标",
-	"subtitles.filename":    "字幕文件",
-	"subtitles.force_style": "强制字幕样式",
-	"volume.volume":         "音量倍数",
-	"atempo.tempo":          "变速倍数",
-	"transpose.dir":         "旋转方向",
-	"loudnorm.I":            "目标响度",
-}
-
-// filterParamDesc 返回参数说明：中文界面优先用 curated 中文说明
-func (a *App) filterParamDesc(filter string, p filterParamInfo) string {
-	if a.lang == "zh" {
-		if d := filterParamDescZh[filter+"."+p.Key]; d != "" {
-			return d
-		}
-		if d := filterParamDescZh[filter+"."+strings.TrimPrefix(p.Key, "out_")]; d != "" && filterParamAlias[p.Key] {
-			return d
-		}
-	}
-	return p.Desc
-}
-
 // filterParamLabel 参数在表单中的标签：key + 说明 + 范围
-func (a *App) filterParamLabel(filter string, p filterParamInfo) string {
+func (a *App) filterParamLabel(p filterParamInfo) string {
 	label := p.Key
-	if d := a.filterParamDesc(filter, p); d != "" {
-		label += "（" + d + "）"
+	if p.Desc != "" {
+		label += "（" + p.Desc + "）"
 	}
 	if p.HasRange {
 		label += " [" + trimFloat(p.Min) + "~" + trimFloat(p.Max) + "]"

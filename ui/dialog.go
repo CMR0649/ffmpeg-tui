@@ -216,7 +216,8 @@ func (a *App) optionListTexts(d *optionDialog) []string {
 	}
 	texts := make([]string, 0, len(d.filtered))
 	for _, idx := range d.filtered {
-		texts = append(texts, d.options[idx])
+		// 语言包的强制替换表可改写列表中的文本（如滤镜说明）
+		texts = append(texts, a.translateListText(d.options[idx]))
 	}
 	return texts
 }
@@ -573,7 +574,7 @@ func splitLines(s string) []string {
 func (a *App) probeFile(path string) string {
 	name := a.ffmpegBin()
 	if _, err := exec.LookPath(name); err != nil {
-		return fmt.Sprintf(a.s.NoFFprobe, name)
+		return fmt.Sprintf(a.s.NoFFmpeg, name)
 	}
 	info := a.ffmpegInfo(path)
 	var size int64
