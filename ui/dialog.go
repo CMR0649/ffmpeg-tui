@@ -58,8 +58,8 @@ func (a *App) closeDialog() {
 	if !a.dialogOpen {
 		return
 	}
-	a.filterForm = nil // 关闭任何对话框时丢弃参数表单状态
 	a.dialogOpen = false
+	a.filterForm = nil // 关闭任何对话框时丢弃参数表单状态
 	a.rootPages.RemovePage("dialog")
 	a.tviewApp.SetFocus(a.pages.GetPage(tabKeys[a.current]))
 }
@@ -258,6 +258,7 @@ func (a *App) buildOptionDialog() {
 	a.filterOptions(d)
 
 	list := a.newOptionList(d)
+	d.list = list
 
 	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
 	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
@@ -420,8 +421,18 @@ func (a *App) onAddFile() {
 		case 0:
 			a.showInputDialog(a.s.InputPath, "", func(text string) {
 				text = strings.TrimSpace(text)
-				if text != "" {
-					a.addFilePath(text)
+				if text == "" {
+					return
+				}
+				paths, err := resolvePathExpr(text, "")
+				if err != nil {
+					a.showMessageDialog(a.s.Hint, err.Error())
+					return
+				}
+				for _, p := range paths {
+					if p != "" {
+						a.addFilePath(p)
+					}
 				}
 			})
 		case 1:

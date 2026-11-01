@@ -15,13 +15,15 @@ type Strings struct {
 	// 通用
 	OK, Cancel, Hint string
 	// 滤镜页
-	FiltersTitle, FilterVideoChain, FilterAudioChain     string
-	FilterAddVideo, FilterAddAudio                       string
-	FilterMoveUp, FilterMoveDown                         string
-	FilterEmpty, FilterCount                             string
-	FilterCopyWarn, FilterNeedEncode                     string
-	FilterParamsTitle, FilterPreview, FilterValueInvalid string
-	FilterListFailed, FilterPickHint                     string
+	FiltersTitle, FilterVideoChain, FilterAudioChain string
+	FilterAddVideo, FilterAddAudio                   string
+	FilterMoveUp, FilterMoveDown                     string
+	FilterEmpty, FilterCount                         string
+	FilterCopyWarn, FilterNeedEncode                 string
+	FilterParamsTitle, FilterPreview                 string
+	FilterParams                                     string
+	FilterParamsHint, FilterNoParams                 string
+	FilterListFailed                                 string
 	// 文件页
 	FilesTitle      string
 	OutputDir       string
@@ -93,15 +95,16 @@ var zh = &Strings{
 	FilterMoveUp: "[上移]", FilterMoveDown: "[下移]",
 	FilterEmpty:       "（空，按回车或 / 添加）",
 	FilterCount:       "视频 %d 个 · 音频 %d 个",
-	FilterCopyWarn:    "[yellow]⚠ 复制流时滤镜不生效[-] ",
+	FilterCopyWarn:    "[yellow]复制流时滤镜不生效[-] ",
 	FilterNeedEncode:  "滤镜链非空但当前编码器为复制流，滤镜不会生效。是否切换为默认编码（libx264 / aac）？",
 	FilterParamsTitle: "滤镜参数", FilterPreview: "预览：",
-	FilterValueInvalid: "参数 %s 的值无效：%s",
-	FilterListFailed:   "无法获取滤镜列表", FilterPickHint: "（回车选择文件）",
-	OK: "确定", Cancel: "取消", Hint: "提示",
+	FilterParams:     "滤镜参数",
+	FilterParamsHint: "参数提示（只读，PgUp/PgDn 滚动）：", FilterNoParams: "该滤镜没有可配置参数",
+	FilterListFailed: "无法获取滤镜列表",
+	OK:               "确定", Cancel: "取消", Hint: "提示",
 	FilesTitle:      "文件 — 输入文件",
 	OutputDir:       "输出目录",
-	OutputDirTitle:  "输出目录（$file 为输入文件目录）",
+	OutputDirTitle:  "输出目录",
 	OutputDirSame:   "与输入文件相同",
 	AddFile:         "[添加文件]",
 	SetContainer:    "[设置输出容器]",
@@ -181,12 +184,13 @@ var en = &Strings{
 	FilterCopyWarn:    "[yellow]⚠ filters have no effect with stream copy[-] ",
 	FilterNeedEncode:  "The filter chain is not empty but the encoder is set to stream copy, so filters will not apply. Switch to the default encoders (libx264 / aac)?",
 	FilterParamsTitle: "Filter parameters", FilterPreview: "Preview: ",
-	FilterValueInvalid: "Invalid value for %s: %s",
-	FilterListFailed:   "Cannot get filter list", FilterPickHint: " (Enter to pick a file)",
-	OK: "OK", Cancel: "Cancel", Hint: "Notice",
+	FilterParams:     "Filter parameters",
+	FilterParamsHint: "Parameter hints (read-only, PgUp/PgDn to scroll): ", FilterNoParams: "This filter has no configurable parameters",
+	FilterListFailed: "Cannot get filter list",
+	OK:               "OK", Cancel: "Cancel", Hint: "Notice",
 	FilesTitle:      "Files — Input",
 	OutputDir:       "Output directory",
-	OutputDirTitle:  "Output directory ($file = input file directory)",
+	OutputDirTitle:  "Output directory",
 	OutputDirSame:   "Same as input",
 	AddFile:         "[Add file]",
 	SetContainer:    "[Output container]",

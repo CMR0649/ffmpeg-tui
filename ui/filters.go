@@ -19,15 +19,25 @@ type FilterParam struct {
 // FilterInstance 链中的一个滤镜实例
 type FilterInstance struct {
 	Name   string        `json:"name"`
-	Params []FilterParam `json:"params"` // 仅保存显式设置的参数（有序）
+	Params []FilterParam `json:"params"`           // 仅保存显式设置的参数（有序）
+	Manual string        `json:"manual,omitempty"` // 手动参数：非空时仅使用此处内容
 }
 
-// filterChainString 把滤镜链拼为逗号分隔的简单滤镜图串：
-// 首个参数用「名称=参数」连接，其余参数用「:」连接；
-// 位置型参数（如 subtitles 的 filename）省略 key
+// filterChainString 拼接滤镜串（不解析路径表达式，用于预览）
 func filterChainString(chain []FilterInstance) string {
+	return filterChainStringInput(chain, "")
+}
+
+// filterChainStringInput 同 filterChainString，但会按输入文件解析
+// 参数里的路径表达式（${file}、${file.d}、${s...}(...)）
+func filterChainStringInput(chain []FilterInstance, input string) string {
 	parts := make([]string, 0, len(chain))
 	for _, f := range chain {
+		if f.Manual != "" {
+			// 手动参数：整段接在滤镜名之后，仅使用此处内容
+			parts = append(parts, f.Name+manualFilterArgs(resolveFilterText(f.Manual, input)))
+			continue
+		}
 		s := f.Name
 		for i, p := range f.Params {
 			sep := ":"
@@ -38,11 +48,23 @@ func filterChainString(chain []FilterInstance) string {
 			if !positionalFilterParam(f.Name, p.Key) {
 				key = p.Key + "="
 			}
-			s += sep + key + escapeFilterValue(p.Value)
+			s += sep + key + escapeFilterValue(resolveFilterText(p.Value, input))
 		}
 		parts = append(parts, s)
 	}
 	return strings.Join(parts, ",")
+}
+
+// manualFilterArgs 把手动参数接到滤镜名后：未以 = 或 : 开头时补 =
+func manualFilterArgs(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if strings.HasPrefix(s, "=") || strings.HasPrefix(s, ":") {
+		return s
+	}
+	return "=" + s
 }
 
 // positionalFilterParam 报告滤镜参数是否以位置形式（不带 key）输出。
@@ -70,7 +92,7 @@ func copyFilters(chain []FilterInstance) []FilterInstance {
 	}
 	out := make([]FilterInstance, len(chain))
 	for i, f := range chain {
-		out[i] = FilterInstance{Name: f.Name}
+		out[i] = FilterInstance{Name: f.Name, Manual: f.Manual}
 		if len(f.Params) > 0 {
 			out[i].Params = make([]FilterParam, len(f.Params))
 			copy(out[i].Params, f.Params)

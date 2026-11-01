@@ -216,6 +216,9 @@ func (a *App) exportConfig() {
 		if path == "" {
 			return
 		}
+		if resolved, err := resolvePathExprOne(path, ""); err == nil {
+			path = resolved
+		}
 		if err := a.cfg.SaveJSON(path); err != nil {
 			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.SaveCfgFailed, err.Error()))
 			return
@@ -231,6 +234,12 @@ func (a *App) loadConfig() {
 		if path == "" {
 			return
 		}
+		resolved, err := resolvePathExprOne(path, "")
+		if err != nil {
+			a.showMessageDialog(a.s.Hint, err.Error())
+			return
+		}
+		path = resolved
 		if err := a.cfg.LoadJSON(path); err != nil {
 			a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.LoadCfgFailed, err.Error()))
 			return

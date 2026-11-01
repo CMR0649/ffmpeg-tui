@@ -364,11 +364,9 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case tcell.KeyTab:
 		if a.dialogOpen {
-			// 参数表单内：Tab 在字段间移动，最后一个字段再按 Tab 才离开表单
-			if a.filterFormFocused() && a.filterFormItemCount() > 0 {
-				if a.filterFormFocusedIndex() < a.filterFormItemCount()-1 {
-					return event
-				}
+			// 参数表单内：Tab 在字段与表单按钮间移动，到末尾再按 Tab 才离开
+			if a.filterFormFocused() && !a.filterFormAtEnd() {
+				return event
 			}
 			a.dialogFocusNext()
 			return nil
@@ -379,7 +377,7 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 		}
 	case tcell.KeyBacktab:
 		if a.dialogOpen {
-			if a.filterFormFocused() && a.filterFormItemCount() > 0 && a.filterFormFocusedIndex() > 0 {
+			if a.filterFormFocused() && !a.filterFormAtStart() {
 				return event
 			}
 			a.dialogFocusPrev()
@@ -390,12 +388,12 @@ func (a *App) handleKeys(event *tcell.EventKey) *tcell.EventKey {
 			return nil
 		}
 	case tcell.KeyPgUp, tcell.KeyPgDn:
-		// 参数表单：翻页
+		// 滤镜参数对话框：PgUp/PgDn 滚动参数提示
 		if a.dialogOpen && a.filterForm != nil {
 			if event.Key() == tcell.KeyPgUp {
-				a.filterFormPrevPage()
+				a.scrollFilterHints(-1)
 			} else {
-				a.filterFormNextPage()
+				a.scrollFilterHints(1)
 			}
 			return nil
 		}

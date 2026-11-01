@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -21,12 +20,12 @@ func (a *App) buildFiltersPage() tview.Primitive {
 	a.filterVideoList = tview.NewList()
 	a.filterVideoList.SetBorder(true)
 	a.selectOnSecondClick(a.filterVideoList)
-	a.filterVideoList.SetFocusFunc(func() { a.filterActive = filterChainVideo })
+	a.filterVideoList.SetFocusFunc(func() { a.updateFilterListStyles() })
 
 	a.filterAudioList = tview.NewList()
 	a.filterAudioList.SetBorder(true)
 	a.selectOnSecondClick(a.filterAudioList)
-	a.filterAudioList.SetFocusFunc(func() { a.filterActive = filterChainAudio })
+	a.filterAudioList.SetFocusFunc(func() { a.updateFilterListStyles() })
 
 	addVideoBtn := tview.NewButton(tview.Escape(a.s.FilterAddVideo))
 	addVideoBtn.SetSelectedFunc(func() { a.addFilter(filterChainVideo) })
@@ -37,6 +36,10 @@ func (a *App) buildFiltersPage() tview.Primitive {
 	downBtn := tview.NewButton(tview.Escape(a.s.FilterMoveDown))
 	downBtn.SetSelectedFunc(func() { a.moveSelectedFilter(1) })
 
+	for _, b := range []*tview.Button{addVideoBtn, addAudioBtn, upBtn, downBtn} {
+		b := b
+		b.SetFocusFunc(func() { a.updateFilterListStyles() })
+	}
 	a.filterBarButtons = []tview.Primitive{addVideoBtn, addAudioBtn, upBtn, downBtn}
 	a.filterBarFocusables = []tview.Primitive{
 		a.filterVideoList, a.filterAudioList, addVideoBtn, addAudioBtn, upBtn, downBtn,
@@ -70,6 +73,7 @@ func (a *App) buildFiltersPage() tview.Primitive {
 	a.filtersPage = page
 
 	a.refreshFiltersPage()
+	a.updateFilterListStyles()
 	return page
 }
 
@@ -112,6 +116,58 @@ func (a *App) focusedFilterChain() int {
 // focusedFilterList 返回当前应操作的链列表（供 pageList 使用）
 func (a *App) focusedFilterList() *tview.List {
 	return a.filterListFor(a.focusedFilterChain())
+}
+
+// updateFilterListStyles 设置两条链的选中样式：
+// 焦点所在链表为白底蓝字；焦点不在任一列表时，最近操作的链表为白底黑字；
+// 另一条链不显示选中，保证同一时刻只有一处可见选中
+func (a *App) updateFilterListStyles() {
+	if a.filterVideoList == nil || a.filterAudioList == nil {
+		return
+	}
+	focused := a.tviewApp.GetFocus()
+	if focused == a.filterVideoList {
+		a.filterActive = filterChainVideo
+	}
+	if focused == a.filterAudioList {
+		a.filterActive = filterChainAudio
+	}
+	a.applyFilterListStyle(a.filterVideoList, filterChainVideo, focused == a.filterVideoList)
+	a.applyFilterListStyle(a.filterAudioList, filterChainAudio, focused == a.filterAudioList)
+}
+
+// 链列表选中样式
+const (
+	filterSelNone    = iota // 不显示选中
+	filterSelActive         // 选中但列表无焦点（白底黑字）
+	filterSelFocused        // 选中且列表有焦点（白底蓝字）
+)
+
+// filterSelectionStyle 返回某条链应使用的选中样式：
+// 有焦点 → 白底蓝字；无焦点但属于最近操作的链 → 白底黑字；其余不显示选中
+func (a *App) filterSelectionStyle(which int, focused bool) int {
+	switch {
+	case focused:
+		return filterSelFocused
+	case which == a.filterActive:
+		return filterSelActive
+	}
+	return filterSelNone
+}
+
+// applyFilterListStyle 应用单条链的选中样式
+func (a *App) applyFilterListStyle(l *tview.List, which int, focused bool) {
+	switch a.filterSelectionStyle(which, focused) {
+	case filterSelFocused:
+		l.SetSelectedTextColor(tcell.ColorBlue)
+		l.SetSelectedBackgroundColor(tcell.ColorWhite)
+	case filterSelActive:
+		l.SetSelectedTextColor(tcell.ColorBlack)
+		l.SetSelectedBackgroundColor(tcell.ColorWhite)
+	default:
+		l.SetSelectedTextColor(tview.Styles.PrimaryTextColor)
+		l.SetSelectedBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	}
 }
 
 // filterChainTitle 链标题：复制流且链非空时加警告前缀
@@ -159,8 +215,11 @@ func (a *App) refreshFilterList(which int) {
 	}
 }
 
-// filterItemText 列表项文本：滤镜名 + 显式参数
+// filterItemText 列表项文本：滤镜名 + 手动参数或显式参数
 func filterItemText(f FilterInstance) string {
+	if f.Manual != "" {
+		return f.Name + "  " + f.Manual
+	}
 	if len(f.Params) == 0 {
 		return f.Name
 	}
@@ -245,20 +304,21 @@ func (a *App) moveSelectedFilter(delta int) {
 	}
 }
 
-// ---------- 参数表单对话框 ----------
+// ---------- 滤镜参数对话框 ----------
 
-// filterFormState 滤镜参数表单对话框的状态
+// filterFormState 滤镜参数对话框状态
 type filterFormState struct {
 	filter  string
 	which   int
-	idx     int // -1 表示新增
-	params  []filterParamInfo
-	values  map[string]string // 显式设置的参数
-	page    int
-	perPage int
-	form    *tview.Form
+	idx     int               // -1 表示新增
+	params  []filterParamInfo // 只读参数提示
+	manual  string            // 滤镜参数（唯一来源）
+	field   *tview.InputField // 滤镜参数输入框
+	hints   *tview.TextView
 	preview *tview.TextView
-	pageLbl *tview.TextView
+	ok      *tview.Button
+	cancel  *tview.Button
+	hintTop int // 参数提示的滚动行
 }
 
 // appendFilter 把滤镜追加到链尾并刷新页面
@@ -272,183 +332,119 @@ func (a *App) appendFilter(which int, inst FilterInstance) {
 	}
 }
 
-// openFilterForm 打开滤镜参数表单（idx=-1 为新增）
+// openFilterForm 打开滤镜参数对话框（idx=-1 为新增）
 func (a *App) openFilterForm(which int, name string, idx int) {
 	info := probeFilter(a.ffmpegBin(), name)
-	if len(info.Params) == 0 && idx < 0 {
-		// 无参数滤镜（如 hflip）：直接添加
-		a.appendFilter(which, FilterInstance{Name: name})
-		return
-	}
-	d := &filterFormState{
-		filter: name,
-		which:  which,
-		idx:    idx,
-		params: info.Params,
-		values: map[string]string{},
-	}
+	d := &filterFormState{filter: name, which: which, idx: idx, params: info.Params}
 	if idx >= 0 {
 		chain := a.filterChain(which)
 		if idx < len(chain) {
-			for _, p := range chain[idx].Params {
-				d.values[p.Key] = p.Value
+			d.manual = chain[idx].Manual
+			// 旧配置里按参数保存的滤镜：转换成滤镜参数文本
+			if d.manual == "" && len(chain[idx].Params) > 0 {
+				d.manual = paramsToManual(chain[idx])
 			}
 		}
 	}
-	_, sh := a.screenSize()
-	// 弹窗高度 = 字段数 + 8（页码 1 + 预览 2 + 边框与按钮 5）；
-	// 高度上限为屏高-6，故每页字段数取屏高-14，保证上下各留 3 行
-	d.perPage = sh - 14
-	if d.perPage < 2 {
-		d.perPage = 2
-	}
+	a.showFilterFormDialog(d)
+}
 
-	d.form = tview.NewForm()
-	d.form.SetBorder(false)
+// showFilterFormDialog 显示（或重新显示）滤镜参数对话框：
+// 上方是唯一的「滤镜参数」输入框，中间是只读参数提示，底部实时预览
+func (a *App) showFilterFormDialog(d *filterFormState) {
+	if d == nil {
+		return
+	}
+	d.field = tview.NewInputField().
+		SetLabel(a.s.FilterParams).
+		SetText(d.manual)
+	d.field.SetFieldWidth(0)
+	d.field.SetChangedFunc(func(v string) {
+		d.manual = strings.TrimSpace(v)
+		a.updateFilterPreview()
+	})
+	d.field.SetDoneFunc(func(k tcell.Key) {
+		if k == tcell.KeyEnter {
+			a.confirmFilterForm()
+		}
+	})
+
+	d.hints = tview.NewTextView()
+	d.hints.SetScrollable(true)
+	d.hints.SetWrap(false)
+	d.hints.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	d.hints.SetTextStyle(tcell.StyleDefault.
+		Foreground(tview.Styles.SecondaryTextColor).
+		Background(tview.Styles.PrimitiveBackgroundColor))
+	d.hints.SetText(a.filterHintsText(d))
+	d.hints.ScrollTo(d.hintTop, 0)
+
 	d.preview = tview.NewTextView()
 	d.preview.SetWrap(true)
 	d.preview.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	d.preview.SetTextStyle(tcell.StyleDefault.
 		Foreground(tview.Styles.PrimaryTextColor).
 		Background(tview.Styles.PrimitiveBackgroundColor))
-	d.pageLbl = tview.NewTextView()
-	d.pageLbl.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-	d.pageLbl.SetTextStyle(tcell.StyleDefault.
-		Foreground(tview.Styles.PrimaryTextColor).
-		Background(tview.Styles.PrimitiveBackgroundColor))
+	a.updateFilterPreview()
+
+	d.ok = tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
+	d.ok.SetSelectedFunc(func() { a.confirmFilterForm() })
+	d.cancel = tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
+	d.cancel.SetSelectedFunc(func() { a.closeFilterForm() })
 
 	a.filterForm = d
-	a.rebuildFilterForm()
-
-	ok := tview.NewButton(tview.Escape("[" + a.s.OK + "]"))
-	ok.SetSelectedFunc(func() { a.confirmFilterForm() })
-	cancel := tview.NewButton(tview.Escape("[" + a.s.Cancel + "]"))
-	cancel.SetSelectedFunc(func() { a.closeFilterForm() })
-
 	body := tview.NewFlex().SetDirection(tview.FlexRow)
-	body.AddItem(d.pageLbl, 1, 0, false)
-	body.AddItem(d.form, 0, 1, true)
+	body.AddItem(d.field, 1, 0, true)
+	body.AddItem(d.hints, 0, 1, false)
 	body.AddItem(d.preview, 2, 0, false)
 
-	h := len(d.params)
-	if h > d.perPage {
-		h = d.perPage
+	// 高度：输入框 1 + 提示若干行 + 预览 2 + 边框与按钮 5；上限为屏高-6
+	_, sh := a.screenSize()
+	hintRows := sh - 6 - 8
+	if hintRows < 3 {
+		hintRows = 3
 	}
-	h += 8
-	a.dialogButtons = []tview.Primitive{ok, cancel}
-	a.showDialog(a.buildDialogBox(a.s.FilterParamsTitle+" "+name, body, 70, h, ok, cancel),
-		[]tview.Primitive{d.form, ok, cancel}, d.form)
+	if n := len(d.params) + 1; n < hintRows {
+		hintRows = n
+	}
+	a.dialogButtons = []tview.Primitive{d.ok, d.cancel}
+	a.showDialog(a.buildDialogBox(a.s.FilterParamsTitle+" "+d.filter, body, 70, hintRows+8, d.ok, d.cancel),
+		[]tview.Primitive{d.field, d.ok, d.cancel}, d.field)
 }
 
-// rebuildFilterForm 按当前页重建表单控件并刷新预览
-func (a *App) rebuildFilterForm() {
-	d := a.filterForm
+// openFilterFormState 用已有状态重新显示滤镜参数对话框
+func (a *App) openFilterFormState(d *filterFormState) {
 	if d == nil {
 		return
 	}
-	d.form.Clear(true)
-	start := d.page * d.perPage
-	end := start + d.perPage
-	if end > len(d.params) {
-		end = len(d.params)
-	}
-	for i := start; i < end; i++ {
-		a.addFilterFormItem(d, d.params[i])
-	}
-	a.updateFilterFormPageLabel()
-	a.updateFilterPreview()
+	a.showFilterFormDialog(d)
 }
 
-// addFilterFormItem 按参数类型添加控件
-func (a *App) addFilterFormItem(d *filterFormState, p filterParamInfo) {
-	label := a.filterParamLabel(p)
-	if d := filterDefaultLabel(p); d != "" {
-		label += " = " + d
+// filterHintsText 生成只读的参数提示文本
+func (a *App) filterHintsText(d *filterFormState) string {
+	var b strings.Builder
+	b.WriteString(a.s.FilterParamsHint)
+	if len(d.params) == 0 {
+		b.WriteString("\n" + a.s.FilterNoParams)
+		return b.String()
 	}
-	switch {
-	case p.Type == "boolean":
-		cb := tview.NewCheckbox().SetLabel(label)
-		cb.SetChecked(d.values[p.Key] != "")
-		cb.SetChangedFunc(func(checked bool) {
-			if checked {
-				d.values[p.Key] = "1"
-			} else {
-				delete(d.values, p.Key)
-			}
-			a.updateFilterPreview()
-		})
-		d.form.AddFormItem(cb)
-	case len(p.Enum) > 0:
-		names := make([]string, len(p.Enum))
-		sel := 0
-		for i, e := range p.Enum {
-			names[i] = e.Name
-			if e.Name == d.values[p.Key] || (d.values[p.Key] == "" && e.Name == p.Default) {
-				sel = i
-			}
+	for _, p := range d.params {
+		line := "  " + a.filterParamLabel(p)
+		if def := filterDefaultLabel(p); def != "" {
+			line += " = " + def
 		}
-		dd := tview.NewDropDown().SetLabel(label).SetOptions(names, nil)
-		dd.SetCurrentOption(sel)
-		dd.SetSelectedFunc(func(text string, _ int) {
-			if text == p.Default || text == "" {
-				delete(d.values, p.Key)
-			} else {
-				d.values[p.Key] = text
-			}
-			a.updateFilterPreview()
-		})
-		d.form.AddFormItem(dd)
-	default:
-		text := d.values[p.Key]
-		if text == "" {
-			text = p.Default
-		}
-		in := tview.NewInputField().SetLabel(label).SetText(text).SetFieldWidth(0)
-		in.SetChangedFunc(func(v string) {
-			v = strings.TrimSpace(v)
-			if v == "" || v == p.Default {
-				delete(d.values, p.Key)
-			} else {
-				d.values[p.Key] = v
-			}
-			a.updateFilterPreview()
-		})
-		if filterFilePathParam(d.filter, p.Key) {
-			in.SetLabel(label + a.s.FilterPickHint)
-			in.SetDoneFunc(func(key tcell.Key) {
-				if key == tcell.KeyEnter {
-					a.pickFilterFilePath(in)
-				}
-			})
-		}
-		d.form.AddFormItem(in)
+		b.WriteString("\n" + line)
 	}
+	return b.String()
 }
 
-// pickFilterFilePath 用系统文件选择器填写文件路径参数（回车触发）
-func (a *App) pickFilterFilePath(in *tview.InputField) {
-	var paths []string
-	a.tviewApp.Suspend(func() { paths, _ = runSystemFilePicker() })
-	if len(paths) > 0 {
-		in.SetText(filepath.ToSlash(paths[0]))
+// paramsToManual 把按参数保存的滤镜转成滤镜参数文本（兼容旧配置）
+func paramsToManual(f FilterInstance) string {
+	s := filterChainString([]FilterInstance{{Name: f.Name, Params: f.Params}})
+	if rest, ok := strings.CutPrefix(s, f.Name+"="); ok {
+		return rest
 	}
-}
-
-// updateFilterFormPageLabel 刷新页码提示
-func (a *App) updateFilterFormPageLabel() {
-	d := a.filterForm
-	if d == nil || d.pageLbl == nil {
-		return
-	}
-	pages := (len(d.params) + d.perPage - 1) / d.perPage
-	if pages < 1 {
-		pages = 1
-	}
-	if pages <= 1 {
-		d.pageLbl.SetText("")
-		return
-	}
-	d.pageLbl.SetText(fmt.Sprintf("%s  %d/%d  (PgUp/PgDn)", a.s.FilterParamsTitle, d.page+1, pages))
+	return ""
 }
 
 // updateFilterPreview 刷新底部实时预览串
@@ -458,87 +454,27 @@ func (a *App) updateFilterPreview() {
 		return
 	}
 	inst := FilterInstance{Name: d.filter}
-	for _, p := range d.params {
-		if v, ok := d.values[p.Key]; ok {
-			inst.Params = append(inst.Params, FilterParam{Key: p.Key, Value: v})
-		}
+	if m := strings.TrimSpace(d.manual); m != "" {
+		inst.Manual = m
 	}
 	d.preview.SetText(a.s.FilterPreview + filterChainString([]FilterInstance{inst}))
 }
 
-// filterFormPrevPage 上一页参数
-func (a *App) filterFormPrevPage() {
-	if a.filterForm == nil || a.filterForm.page <= 0 {
-		return
-	}
-	a.filterForm.page--
-	a.rebuildFilterForm()
-}
-
-// filterFormNextPage 下一页参数
-func (a *App) filterFormNextPage() {
-	d := a.filterForm
-	if d == nil {
-		return
-	}
-	pages := (len(d.params) + d.perPage - 1) / d.perPage
-	if d.page+1 >= pages {
-		return
-	}
-	d.page++
-	a.rebuildFilterForm()
-}
-
-// filterFormFocused 报告焦点是否在参数表单上（含其内部字段）
+// filterFormFocused 报告焦点是否在「滤镜参数」输入框上
 func (a *App) filterFormFocused() bool {
 	d := a.filterForm
-	if d == nil || d.form == nil {
-		return false
-	}
-	focused := tview.Primitive(a.tviewApp.GetFocus())
-	if focused == nil {
-		return false
-	}
-	if focused == tview.Primitive(d.form) {
-		return true
-	}
-	for i := 0; i < d.form.GetFormItemCount(); i++ {
-		if tview.Primitive(d.form.GetFormItem(i)) == focused {
-			return true
-		}
-	}
-	return false
+	return d != nil && d.field != nil && tview.Primitive(a.tviewApp.GetFocus()) == tview.Primitive(d.field)
 }
 
-// confirmFilterForm 校验并应用表单
+// confirmFilterForm 应用滤镜参数
 func (a *App) confirmFilterForm() {
 	d := a.filterForm
 	if d == nil {
 		return
 	}
-	// 校验数值范围
-	for _, p := range d.params {
-		v, ok := d.values[p.Key]
-		if !ok || p.Type == "boolean" || len(p.Enum) > 0 {
-			continue
-		}
-		if isNumericType(p.Type) {
-			f, err := parseFloatValue(v)
-			if err != nil {
-				a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.FilterValueInvalid, p.Key, v))
-				return
-			}
-			if p.HasRange && (f < p.Min || f > p.Max) {
-				a.showMessageDialog(a.s.Hint, fmt.Sprintf(a.s.FilterValueInvalid, p.Key, v))
-				return
-			}
-		}
-	}
 	inst := FilterInstance{Name: d.filter}
-	for _, p := range d.params {
-		if v, ok := d.values[p.Key]; ok {
-			inst.Params = append(inst.Params, FilterParam{Key: p.Key, Value: v})
-		}
+	if m := strings.TrimSpace(d.manual); m != "" {
+		inst.Manual = m
 	}
 	chain := a.filterChain(d.which)
 	if d.idx >= 0 && d.idx < len(chain) {
@@ -551,58 +487,35 @@ func (a *App) confirmFilterForm() {
 	a.refreshFiltersPage()
 }
 
-// closeFilterForm 关闭参数表单对话框
+// closeFilterForm 关闭滤镜参数对话框
 func (a *App) closeFilterForm() {
 	a.filterForm = nil
 	a.closeDialog()
 }
 
-// isNumericType 报告参数类型是否数值
-func isNumericType(t string) bool {
-	switch t {
-	case "int", "int64", "double", "float", "rational":
-		return true
-	}
-	return false
-}
+// filterFormAtEnd 报告焦点是否已在滤镜参数输入框（Tab 即可离开）
+func (a *App) filterFormAtEnd() bool { return true }
 
-// parseFloatValue 解析数值参数（支持整数、小数与分数）
-func parseFloatValue(v string) (float64, error) {
-	v = strings.TrimSpace(v)
-	if i := strings.Index(v, "/"); i > 0 {
-		a, err := parseFloatValue(v[:i])
-		if err != nil {
-			return 0, err
-		}
-		b, err := parseFloatValue(v[i+1:])
-		if err != nil || b == 0 {
-			return 0, fmt.Errorf("invalid rational")
-		}
-		return a / b, nil
-	}
-	var f float64
-	_, err := fmt.Sscanf(v, "%g", &f)
-	if err != nil {
-		return 0, err
-	}
-	return f, nil
-}
+// filterFormAtStart 报告焦点是否已在滤镜参数输入框（Shift-Tab 即可离开）
+func (a *App) filterFormAtStart() bool { return true }
 
-// filterFormItemCount 当前页表单字段数
-func (a *App) filterFormItemCount() int {
-	if a.filterForm == nil || a.filterForm.form == nil {
-		return 0
+// scrollFilterHints 滚动参数提示
+func (a *App) scrollFilterHints(delta int) bool {
+	d := a.filterForm
+	if d == nil || d.hints == nil {
+		return false
 	}
-	return a.filterForm.form.GetFormItemCount()
-}
-
-// filterFormFocusedIndex 当前聚焦的表单字段下标
-func (a *App) filterFormFocusedIndex() int {
-	if a.filterForm == nil || a.filterForm.form == nil {
-		return 0
+	_, _, _, h := d.hints.GetInnerRect()
+	step := h
+	if step < 1 {
+		step = 1
 	}
-	item, _ := a.filterForm.form.GetFocusedItemIndex()
-	return item
+	d.hintTop += delta * step
+	if d.hintTop < 0 {
+		d.hintTop = 0
+	}
+	d.hints.ScrollTo(d.hintTop, 0)
+	return true
 }
 
 // ---------- 复制流与滤镜的冲突 ----------

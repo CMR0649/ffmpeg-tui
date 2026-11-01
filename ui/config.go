@@ -193,8 +193,21 @@ func TimestampFormat(format string, t time.Time) string {
 // 输入文件在不同目录时，各文件输出到与之对应的目录。
 func ResolveOutputDir(setting, inputPath string) string {
 	dir := filepath.Dir(inputPath)
-	if setting == "" || setting == "$file" {
+	if setting == "" {
 		return dir
 	}
-	return strings.ReplaceAll(setting, "$file", dir)
+	// 旧的 $file 等价于 ${file.d}（输入文件所在目录）
+	setting = strings.ReplaceAll(setting, "$file", "${file.d}")
+	if strings.Contains(setting, "${") {
+		if v, err := resolvePathExprOne(setting, inputPath); err == nil && v != "" {
+			return v
+		}
+		return dir
+	}
+	if hasGlobMeta(setting) {
+		if v, err := resolvePathExprOne(setting, inputPath); err == nil && v != "" {
+			return v
+		}
+	}
+	return setting
 }

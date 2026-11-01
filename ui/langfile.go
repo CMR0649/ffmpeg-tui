@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -93,6 +94,8 @@ func parseLangFile(text string) *langPack {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+		// 先把 /-…-/ 换成占位符，使其中的引号、分号、括号、= 都不参与语法
+		line, raws := extractLangRaw(line)
 		switch line {
 		case "{{":
 			block = blockReplace
@@ -110,11 +113,12 @@ func parseLangFile(text string) *langPack {
 			if !ok {
 				continue
 			}
+			v = expandLangRaw(unquoteLangValue(v), raws)
 			switch strings.ToLower(strings.TrimSpace(k)) {
 			case "lang":
-				pack.ID = unquoteLangValue(v)
+				pack.ID = v
 			case "name":
-				pack.Name = unquoteLangValue(v)
+				pack.Name = v
 			}
 			continue
 		}
@@ -123,6 +127,8 @@ func parseLangFile(text string) *langPack {
 			if !ok || key == "" {
 				continue
 			}
+			key = expandLangRaw(key, raws)
+			val = expandLangRaw(val, raws)
 			if block == blockReplace {
 				pack.Replace[key] = val
 			} else {
@@ -134,6 +140,7 @@ func parseLangFile(text string) *langPack {
 }
 
 // splitLangStatements 按引号外的分号把一行拆成多条语句
+// （/-…-/ 原样文本已在调用前换成占位符，其中不含分号）
 func splitLangStatements(line string) []string {
 	var out []string
 	var cur strings.Builder
@@ -157,39 +164,30 @@ func splitLangStatements(line string) []string {
 			quote = c
 			cur.WriteByte(c)
 		case ';':
-			if s := strings.TrimSpace(cur.String()); s != "" {
-				out = append(out, s)
+			if v := strings.TrimSpace(cur.String()); v != "" {
+				out = append(out, v)
 			}
 			cur.Reset()
 		default:
 			cur.WriteByte(c)
 		}
 	}
-	if s := strings.TrimSpace(cur.String()); s != "" {
-		out = append(out, s)
+	if v := strings.TrimSpace(cur.String()); v != "" {
+		out = append(out, v)
 	}
 	return out
 }
 
-// splitLangAssign 把 "键 = 值" 语句拆成键值；键可为带引号的整段文本
+// splitLangAssign 把 "键 = 值" 语句拆成键值；
+// 键若是带引号的整段文本，结束引号取「后面紧跟 =」的那个，
+// 因此键内未转义的引号（如 Quick Sync Video "VPP"）也能正确断句
 func splitLangAssign(stmt string) (key, value string, ok bool) {
 	stmt = strings.TrimSpace(stmt)
 	if stmt == "" {
 		return "", "", false
 	}
 	if stmt[0] == '"' || stmt[0] == '\'' {
-		q := stmt[0]
-		end := -1
-		for i := 1; i < len(stmt); i++ {
-			if stmt[i] == '\\' {
-				i++
-				continue
-			}
-			if stmt[i] == q {
-				end = i
-				break
-			}
-		}
+		end := closingDelimiter(stmt)
 		if end < 0 {
 			return "", "", false
 		}
@@ -197,7 +195,7 @@ func splitLangAssign(stmt string) (key, value string, ok bool) {
 		if !strings.HasPrefix(rest, "=") {
 			return "", "", false
 		}
-		return unquoteLangValue(stmt[:end+1]), unquoteLangValue(strings.TrimSpace(rest[1:])), true
+		return unquoteLangValue(stmt[:end+1]), unquoteLangValue(rest[1:]), true
 	}
 	k, v, ok := strings.Cut(stmt, "=")
 	if !ok {
@@ -206,7 +204,38 @@ func splitLangAssign(stmt string) (key, value string, ok bool) {
 	return unquoteLangValue(k), unquoteLangValue(v), true
 }
 
-// unquoteLangValue 去掉成对的单/双引号并处理 \\ \" \' \n \t 转义
+// closingDelimiter 返回以引号开头的文本的结束引号下标（找不到返回 -1）。
+// 优先取后面（跳过空白）紧跟 = 的引号，否则退回第一个未转义的引号。
+func closingDelimiter(s string) int {
+	if s == "" || (s[0] != '"' && s[0] != '\'') {
+		return -1
+	}
+	q := s[0]
+	first := -1
+	for i := 1; i < len(s); i++ {
+		if s[i] == '\\' {
+			i++
+			continue
+		}
+		if s[i] != q {
+			continue
+		}
+		if first < 0 {
+			first = i
+		}
+		j := i + 1
+		for j < len(s) && (s[j] == ' ' || s[j] == '\t') {
+			j++
+		}
+		if j < len(s) && s[j] == '=' {
+			return i
+		}
+	}
+	return first
+}
+
+// unquoteLangValue 去掉成对的单/双引号；内部只处理 \\ \" \' \n \t 转义。
+// /-…-/ 原样文本已由 extractLangRaw 换成占位符，这里无需再处理。
 func unquoteLangValue(s string) string {
 	s = strings.TrimSpace(s)
 	if len(s) < 2 || (s[0] != '"' && s[0] != '\'') || s[len(s)-1] != s[0] {
@@ -232,6 +261,65 @@ func unquoteLangValue(s string) string {
 	}
 	return b.String()
 }
+
+// extractLangRaw 把行内 /-…-/ 原样文本替换为占位符，返回处理后的行与原文表。
+// 占位符只含 NUL 与数字，不含引号、分号、等号、括号等语法字符。
+func extractLangRaw(line string) (string, []string) {
+	if !strings.Contains(line, "/-") {
+		return line, nil
+	}
+	var out strings.Builder
+	var raws []string
+	for i := 0; i < len(line); i++ {
+		if line[i] == '/' && i+1 < len(line) && line[i+1] == '-' {
+			end := -1
+			for j := i + 2; j+1 < len(line); j++ {
+				if line[j] == '-' && line[j+1] == '\\' {
+					end = j
+					break
+				}
+			}
+			if end >= 0 {
+				raws = append(raws, line[i+2:end])
+				fmt.Fprintf(&out, "%c%d%c", rawPlaceholder, len(raws)-1, rawPlaceholder)
+				i = end + 1
+				continue
+			}
+		}
+		out.WriteByte(line[i])
+	}
+	return out.String(), raws
+}
+
+// expandLangRaw 把占位符还原为原样文本
+func expandLangRaw(s string, raws []string) string {
+	if len(raws) == 0 || !strings.ContainsRune(s, rawPlaceholder) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != byte(rawPlaceholder) {
+			b.WriteByte(s[i])
+			continue
+		}
+		j := i + 1
+		n := 0
+		for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+			n = n*10 + int(s[j]-'0')
+			j++
+		}
+		if j < len(s) && s[j] == byte(rawPlaceholder) && n < len(raws) {
+			b.WriteString(raws[n])
+			i = j
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+// rawPlaceholder 原样文本占位符（不可见且不含语法字符）
+const rawPlaceholder = rune(0)
 
 // applyLangPack 用语言包覆盖内置文案表（键为 Strings 的字段名，未提供的保留原值）
 func applyLangPack(base *Strings, pack *langPack) *Strings {

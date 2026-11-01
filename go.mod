@@ -1,11 +1,12 @@
 module ffmpeg-tui
 
-go 1.24.0
+go 1.24.5
 
 require (
 	github.com/gdamore/tcell/v2 v2.13.10
 	github.com/mattn/go-runewidth v0.0.28
 	github.com/rivo/tview v0.42.0
+	github.com/sahilm/fuzzy v0.1.3
 	golang.org/x/term v0.37.0
 )
 
